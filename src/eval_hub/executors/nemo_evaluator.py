@@ -192,8 +192,14 @@ class NemoEvaluatorExecutor(Executor):
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         # Build API endpoint configuration
+        # Use model server base URL if available, otherwise fall back to config or default
+        model_endpoint = (
+            context.model_server_base_url or
+            self.backend_config.get("model_endpoint") or
+            "http://localhost:8000"
+        )
         api_endpoint = NemoApiEndpoint(
-            url=self.backend_config.get("model_endpoint", "http://localhost:8000"),
+            url=model_endpoint,
             model_id=context.model_name,
             type=EndpointType(self.backend_config.get("endpoint_type", "chat")),
             api_key=self.backend_config.get("api_key_env"),

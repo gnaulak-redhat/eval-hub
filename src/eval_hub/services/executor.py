@@ -23,14 +23,16 @@ from ..models.evaluation import (
 )
 from ..models.status import TaskInfo, TaskStatus
 from ..executors import ExecutorFactory, ExecutionContext
+from ..services.model_service import ModelService
 
 
 class EvaluationExecutor:
     """Service for executing and monitoring evaluations."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, model_service: Optional[ModelService] = None):
         self.settings = settings
         self.logger = get_logger(__name__)
+        self.model_service = model_service
         self.active_tasks: Dict[str, TaskInfo] = {}
         self.execution_semaphore = asyncio.Semaphore(settings.max_concurrent_evaluations)
 
@@ -219,9 +221,28 @@ class EvaluationExecutor:
     ) -> EvaluationResult:
         """Execute a single benchmark on a specific backend."""
         async with self.execution_semaphore:
+            # Resolve model server and model
+            model_server_base_url = None
+            if self.model_service:
+                server_model = self.model_service.get_model_on_server(
+                    evaluation.model_server_id,
+                    evaluation.model_name
+                )
+                if server_model:
+                    server, _ = server_model
+                    model_server_base_url = server.base_url
+                else:
+                    self.logger.warning(
+                        "Model server or model not found, proceeding without base_url",
+                        server_id=evaluation.model_server_id,
+                        model_name=evaluation.model_name
+                    )
+
             context = ExecutionContext(
                 evaluation_id=evaluation.id,
+                model_server_id=evaluation.model_server_id,
                 model_name=evaluation.model_name,
+                model_server_base_url=model_server_base_url,
                 backend_spec=backend,
                 benchmark_spec=benchmark,
                 timeout_minutes=evaluation.timeout_minutes,

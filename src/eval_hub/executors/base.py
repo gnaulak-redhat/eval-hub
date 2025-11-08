@@ -14,16 +14,20 @@ class ExecutionContext:
     def __init__(
         self,
         evaluation_id: UUID,
+        model_server_id: str,
         model_name: str,
         backend_spec: BackendSpec,
         benchmark_spec: BenchmarkSpec,
         timeout_minutes: int,
         retry_attempts: int,
         started_at: Optional[datetime] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        model_server_base_url: Optional[str] = None,
     ):
         self.evaluation_id = evaluation_id
+        self.model_server_id = model_server_id
         self.model_name = model_name
+        self.model_server_base_url = model_server_base_url
         self.backend_spec = backend_spec
         self.benchmark_spec = benchmark_spec
         self.timeout_minutes = timeout_minutes

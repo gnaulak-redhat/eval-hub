@@ -88,7 +88,7 @@ class MLFlowClient:
         benchmark_name: str
     ) -> str:
         """Start an MLFlow run for a specific evaluation."""
-        run_name = f"{evaluation.model_name}_{backend_name}_{benchmark_name}"
+        run_name = f"{evaluation.model_server_id}::{evaluation.model_name}_{backend_name}_{benchmark_name}"
 
         try:
             # Start MLFlow run
@@ -97,6 +97,7 @@ class MLFlowClient:
                 run_name=run_name,
                 tags={
                     "evaluation_id": str(evaluation.id),
+                    "model_server_id": evaluation.model_server_id,
                     "model_name": evaluation.model_name,
                     "backend_name": backend_name,
                     "benchmark_name": benchmark_name,
@@ -130,6 +131,7 @@ class MLFlowClient:
         """Log evaluation parameters to the current MLFlow run."""
         try:
             # Log basic parameters
+            mlflow.log_param("model_server_id", evaluation.model_server_id)
             mlflow.log_param("model_name", evaluation.model_name)
             mlflow.log_param("backend_name", backend_name)
             mlflow.log_param("benchmark_name", benchmark_name)
@@ -303,9 +305,9 @@ class MLFlowClient:
         else:
             # Generate name based on timestamp and request content
             timestamp = request.created_at.strftime("%Y%m%d_%H%M%S")
-            model_names = list(set(eval.model_name for eval in request.evaluations))
-            if len(model_names) == 1:
-                base_name = f"{model_names[0]}_{timestamp}"
+            model_identifiers = list(set(f"{eval.model_server_id}::{eval.model_name}" for eval in request.evaluations))
+            if len(model_identifiers) == 1:
+                base_name = f"{model_identifiers[0]}_{timestamp}"
             else:
                 base_name = f"multi_model_{timestamp}"
 

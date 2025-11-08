@@ -75,7 +75,8 @@ class EvaluationSpec(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="Unique evaluation ID")
     name: str = Field(..., description="Human-readable evaluation name")
     description: Optional[str] = Field(None, description="Evaluation description")
-    model_name: str = Field(..., description="Model to evaluate")
+    model_server_id: str = Field(..., description="Model server identifier")
+    model_name: str = Field(..., description="Name of the model on the server")
     model_configuration: Dict[str, Any] = Field(default_factory=dict, description="Model configuration")
     backends: List[BackendSpec] = Field(..., description="Backends to run evaluations on")
     risk_category: Optional[RiskCategory] = Field(None, description="Risk category for automatic benchmark selection")
@@ -90,7 +91,8 @@ class SingleBenchmarkEvaluationRequest(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    model_name: str = Field(..., description="Model to evaluate")
+    model_server_id: str = Field(..., description="Model server identifier")
+    model_name: str = Field(..., description="Name of the model on the server")
     model_configuration: Dict[str, Any] = Field(default_factory=dict, description="Model configuration")
     timeout_minutes: int = Field(default=60, description="Timeout for the evaluation")
     retry_attempts: int = Field(default=3, description="Number of retry attempts on failure")

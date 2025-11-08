@@ -1,9 +1,9 @@
-"""Model service for managing language model registration and runtime configuration."""
+"""Model service for managing model server registration and runtime configuration."""
 
 import os
 import re
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
 from ..core.config import Settings
 from ..core.logging import get_logger
 from ..models.model import (
@@ -18,297 +18,392 @@ from ..models.model import (
     ListModelsResponse,
     RuntimeModelConfig,
     ModelsData,
+    ModelServer,
+    ModelServerSummary,
+    ModelServerRegistrationRequest,
+    ModelServerUpdateRequest,
+    ListModelServersResponse,
+    ServerModel,
 )
 
 logger = get_logger(__name__)
 
 
 class ModelService:
-    """Service for managing language models."""
+    """Service for managing model servers."""
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self._registered_models: Dict[str, Model] = {}
-        self._runtime_models: Dict[str, Model] = {}
+        self._registered_servers: Dict[str, ModelServer] = {}
+        self._runtime_servers: Dict[str, ModelServer] = {}
         self._initialized = False
 
     def _initialize(self) -> None:
-        """Initialize the model service by loading runtime models from environment variables."""
+        """Initialize the model service by loading runtime servers from environment variables."""
         if self._initialized:
             return
 
-        self._load_runtime_models()
+        self._load_runtime_servers()
         self._initialized = True
         logger.info(
             "Model service initialized",
-            registered_models=len(self._registered_models),
-            runtime_models=len(self._runtime_models)
+            registered_servers=len(self._registered_servers),
+            runtime_servers=len(self._runtime_servers)
         )
 
-    def _load_runtime_models(self) -> None:
-        """Load models specified via environment variables."""
-        # Pattern: EVAL_HUB_MODEL_<MODEL_ID>_URL=<url>
-        # Optional: EVAL_HUB_MODEL_<MODEL_ID>_NAME=<name>
-        # Optional: EVAL_HUB_MODEL_<MODEL_ID>_TYPE=<type>
-        # Optional: EVAL_HUB_MODEL_<MODEL_ID>_PATH=<path>
+    def _load_runtime_servers(self) -> None:
+        """Load model servers specified via environment variables."""
+        # Simple pattern: MODEL_SERVER_URL and MODEL_SERVER_TYPE (creates server with ID "default")
+        # Optional: MODEL_SERVER_ID=<id> (defaults to "default")
+        # Pattern: EVAL_HUB_MODEL_SERVER_<SERVER_ID>_URL=<url>
+        # Optional: EVAL_HUB_MODEL_SERVER_<SERVER_ID>_ID=<id> (defaults to derived from env var name)
+        # Optional: EVAL_HUB_MODEL_SERVER_<SERVER_ID>_TYPE=<type>
+        # Optional: EVAL_HUB_MODEL_SERVER_<SERVER_ID>_MODELS=<comma-separated model names>
+        # For backward compatibility, also support: EVAL_HUB_MODEL_<ID>_URL (creates server with single model)
+        # Optional: EVAL_HUB_MODEL_<ID>_ID=<id> (defaults to derived from env var name)
 
-        runtime_models = {}
+        runtime_servers = {}
 
-        for env_var, env_value in os.environ.items():
-            # Look for model URL environment variables
-            if env_var.startswith("EVAL_HUB_MODEL_") and env_var.endswith("_URL"):
-                # Extract model ID from environment variable name
-                # EVAL_HUB_MODEL_GPT4_URL -> GPT4
-                match = re.match(r'EVAL_HUB_MODEL_(.+)_URL', env_var)
-                if not match:
-                    continue
+        # Simple pattern: MODEL_SERVER_URL and MODEL_SERVER_TYPE
+        model_server_url = os.getenv("MODEL_SERVER_URL")
+        if model_server_url:
+            model_server_url = model_server_url.strip()
+            if model_server_url:
+                server_id = os.getenv("MODEL_SERVER_ID", "default")
+                model_type_str = os.getenv("MODEL_SERVER_TYPE", "openai-compatible")
+                models_str = os.getenv("MODEL_SERVER_MODELS", "")
 
-                model_id = match.group(1).lower()
-                base_url = env_value.strip()
-
-                if not base_url:
-                    logger.warning(f"Empty URL for runtime model {model_id}, skipping")
-                    continue
-
-                # Get optional configuration from other environment variables
-                name_var = f"EVAL_HUB_MODEL_{match.group(1)}_NAME"
-                type_var = f"EVAL_HUB_MODEL_{match.group(1)}_TYPE"
-                path_var = f"EVAL_HUB_MODEL_{match.group(1)}_PATH"
-
-                model_name = os.getenv(name_var, f"Runtime Model {model_id.upper()}")
-                model_type_str = os.getenv(type_var, "openai-compatible")
-                model_path = os.getenv(path_var)
-
-                # Validate model type
                 try:
-                    model_type = ModelType(model_type_str.lower())
+                    server_type = ModelType(model_type_str.lower())
                 except ValueError:
                     logger.warning(
-                        f"Invalid model type '{model_type_str}' for runtime model {model_id}, "
+                        f"Invalid server type '{model_type_str}' for MODEL_SERVER_TYPE, "
                         f"using default 'openai-compatible'"
                     )
-                    model_type = ModelType.OPENAI_COMPATIBLE
+                    server_type = ModelType.OPENAI_COMPATIBLE
 
-                # Create runtime model
-                runtime_model = Model(
-                    model_id=model_id,
-                    model_name=model_name,
-                    description=f"Runtime-specified model: {model_name}",
-                    model_type=model_type,
-                    base_url=base_url,
-                    api_key_required=True,  # Default to requiring API key for security
-                    model_path=model_path,
-                    capabilities=ModelCapabilities(),
-                    config=ModelConfig(),
+                model_names = [m.strip() for m in models_str.split(",") if m.strip()] if models_str else []
+                if not model_names:
+                    model_names = [server_id]
+
+                server_models = []
+                for model_name in model_names:
+                    server_models.append(ServerModel(
+                        model_name=model_name,
+                        description=None,
+                        status=ModelStatus.ACTIVE,
+                        tags=["runtime"]
+                    ))
+
+                runtime_server = ModelServer(
+                    server_id=server_id,
+                    server_type=server_type,
+                    base_url=model_server_url,
+                    api_key_required=True,
+                    models=server_models,
                     status=ModelStatus.ACTIVE,
                     tags=["runtime"],
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
                 )
 
-                runtime_models[model_id] = runtime_model
+                runtime_servers[server_id] = runtime_server
                 logger.info(
-                    "Loaded runtime model from environment",
-                    model_id=model_id,
-                    model_name=model_name,
-                    model_type=model_type.value,
+                    "Loaded runtime server from MODEL_SERVER_URL environment variable",
+                    server_id=server_id,
+                    server_type=server_type.value,
+                    base_url=model_server_url,
+                    model_count=len(server_models)
+                )
+
+        # New pattern: EVAL_HUB_MODEL_SERVER_<SERVER_ID>_URL
+        for env_var, env_value in os.environ.items():
+            if env_var.startswith("EVAL_HUB_MODEL_SERVER_") and env_var.endswith("_URL"):
+                match = re.match(r'EVAL_HUB_MODEL_SERVER_(.+)_URL', env_var)
+                if not match:
+                    continue
+
+                server_id = match.group(1).lower()
+                base_url = env_value.strip()
+
+                if not base_url:
+                    logger.warning(f"Empty URL for runtime server {server_id}, skipping")
+                    continue
+
+                # Get optional configuration
+                type_var = f"EVAL_HUB_MODEL_SERVER_{match.group(1)}_TYPE"
+                models_var = f"EVAL_HUB_MODEL_SERVER_{match.group(1)}_MODELS"
+                id_var = f"EVAL_HUB_MODEL_SERVER_{match.group(1)}_ID"
+
+                # Allow overriding server_id via env var, but default to derived value
+                server_id = os.getenv(id_var, server_id)
+                model_type_str = os.getenv(type_var, "openai-compatible")
+                models_str = os.getenv(models_var, "")
+
+                # Validate model type
+                try:
+                    server_type = ModelType(model_type_str.lower())
+                except ValueError:
+                    logger.warning(
+                        f"Invalid server type '{model_type_str}' for runtime server {server_id}, "
+                        f"using default 'openai-compatible'"
+                    )
+                    server_type = ModelType.OPENAI_COMPATIBLE
+
+                # Parse model names (comma-separated)
+                model_names = [m.strip() for m in models_str.split(",") if m.strip()] if models_str else []
+                
+                # If no models specified, create a default model with the server_id
+                if not model_names:
+                    model_names = [server_id]
+
+                # Create ServerModel objects
+                server_models = []
+                for model_name in model_names:
+                    server_models.append(ServerModel(
+                        model_name=model_name,
+                        description=None,
+                        status=ModelStatus.ACTIVE,
+                        tags=["runtime"]
+                    ))
+
+                # Create runtime server
+                runtime_server = ModelServer(
+                    server_id=server_id,
+                    server_type=server_type,
+                    base_url=base_url,
+                    api_key_required=True,
+                    models=server_models,
+                    status=ModelStatus.ACTIVE,
+                    tags=["runtime"],
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+
+                runtime_servers[server_id] = runtime_server
+                logger.info(
+                    "Loaded runtime server from environment",
+                    server_id=server_id,
+                    server_type=server_type.value,
+                    base_url=base_url,
+                    model_count=len(server_models)
+                )
+
+        # Backward compatibility: EVAL_HUB_MODEL_<ID>_URL creates a server with a single model
+        for env_var, env_value in os.environ.items():
+            if env_var.startswith("EVAL_HUB_MODEL_") and env_var.endswith("_URL") and "SERVER" not in env_var:
+                match = re.match(r'EVAL_HUB_MODEL_(.+)_URL', env_var)
+                if not match:
+                    continue
+
+                server_id = match.group(1).lower()
+                
+                # Skip if already processed as a server
+                if server_id in runtime_servers:
+                    continue
+
+                base_url = env_value.strip()
+                if not base_url:
+                    continue
+
+                type_var = f"EVAL_HUB_MODEL_{match.group(1)}_TYPE"
+                id_var = f"EVAL_HUB_MODEL_{match.group(1)}_ID"
+
+                # Allow overriding server_id via env var, but default to derived value
+                server_id = os.getenv(id_var, server_id)
+                model_type_str = os.getenv(type_var, "openai-compatible")
+
+                try:
+                    server_type = ModelType(model_type_str.lower())
+                except ValueError:
+                    server_type = ModelType.OPENAI_COMPATIBLE
+
+                # Create server with single model (using server_id as model name)
+                runtime_server = ModelServer(
+                    server_id=server_id,
+                    server_type=server_type,
+                    base_url=base_url,
+                    api_key_required=True,
+                    models=[ServerModel(
+                        model_name=server_id,
+                        description=None,
+                        status=ModelStatus.ACTIVE,
+                        tags=["runtime"]
+                    )],
+                    status=ModelStatus.ACTIVE,
+                    tags=["runtime"],
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
+
+                runtime_servers[server_id] = runtime_server
+                logger.info(
+                    "Loaded runtime server from legacy environment variable",
+                    server_id=server_id,
                     base_url=base_url
                 )
 
-        self._runtime_models = runtime_models
+        self._runtime_servers = runtime_servers
 
-    def register_model(self, request: ModelRegistrationRequest) -> Model:
-        """Register a new model."""
+    def register_server(self, request: ModelServerRegistrationRequest) -> ModelServer:
+        """Register a new model server."""
         self._initialize()
 
-        # Check if model ID already exists
-        if request.model_id in self._registered_models:
-            raise ValueError(f"Model with ID '{request.model_id}' already exists")
+        # Check if server ID already exists
+        if request.server_id in self._registered_servers:
+            raise ValueError(f"Server with ID '{request.server_id}' already exists")
 
-        if request.model_id in self._runtime_models:
-            raise ValueError(f"Model with ID '{request.model_id}' is specified as runtime model via environment variable")
+        if request.server_id in self._runtime_servers:
+            raise ValueError(f"Server with ID '{request.server_id}' is specified as runtime server via environment variable")
 
-        # Create the model
+        # Create the server
         now = datetime.utcnow()
-        model = Model(
-            model_id=request.model_id,
-            model_name=request.model_name,
-            description=request.description,
-            model_type=request.model_type,
+        server = ModelServer(
+            server_id=request.server_id,
+            server_type=request.server_type,
             base_url=request.base_url,
             api_key_required=request.api_key_required,
-            model_path=request.model_path,
-            capabilities=request.capabilities or ModelCapabilities(),
-            config=request.config or ModelConfig(),
+            models=request.models or [],
+            server_config=request.server_config,
             status=request.status,
             tags=request.tags,
             created_at=now,
             updated_at=now
         )
 
-        self._registered_models[request.model_id] = model
+        self._registered_servers[request.server_id] = server
 
         logger.info(
-            "Model registered successfully",
-            model_id=request.model_id,
-            model_name=request.model_name,
-            model_type=request.model_type.value
+            "Model server registered successfully",
+            server_id=request.server_id,
+            server_type=request.server_type.value,
+            model_count=len(server.models)
         )
 
-        return model
+        return server
 
-    def update_model(self, model_id: str, request: ModelUpdateRequest) -> Optional[Model]:
-        """Update an existing registered model."""
+    def get_server_by_id(self, server_id: str) -> Optional[ModelServer]:
+        """Get a server by ID (from either registered or runtime servers)."""
         self._initialize()
 
-        if model_id in self._runtime_models:
-            raise ValueError("Cannot update runtime models specified via environment variables")
+        # Check registered servers first
+        if server_id in self._registered_servers:
+            return self._registered_servers[server_id]
 
-        if model_id not in self._registered_models:
+        # Check runtime servers
+        if server_id in self._runtime_servers:
+            return self._runtime_servers[server_id]
+
+        return None
+
+    def get_model_on_server(self, server_id: str, model_name: str) -> Optional[Tuple[ModelServer, ServerModel]]:
+        """Get a specific model on a server. Returns (server, model) tuple if found."""
+        self._initialize()
+
+        server = self.get_server_by_id(server_id)
+        if not server:
             return None
 
-        model = self._registered_models[model_id]
+        # Find the model on the server
+        for model in server.models:
+            if model.model_name == model_name:
+                return (server, model)
 
-        # Update fields that are provided
-        if request.model_name is not None:
-            model.model_name = request.model_name
-        if request.description is not None:
-            model.description = request.description
-        if request.model_type is not None:
-            model.model_type = request.model_type
-        if request.base_url is not None:
-            model.base_url = request.base_url
-        if request.api_key_required is not None:
-            model.api_key_required = request.api_key_required
-        if request.model_path is not None:
-            model.model_path = request.model_path
-        if request.capabilities is not None:
-            model.capabilities = request.capabilities
-        if request.config is not None:
-            model.config = request.config
-        if request.status is not None:
-            model.status = request.status
-        if request.tags is not None:
-            model.tags = request.tags
+        return None
 
-        model.updated_at = datetime.utcnow()
-
-        logger.info(
-            "Model updated successfully",
-            model_id=model_id,
-            model_name=model.model_name
-        )
-
-        return model
-
-    def delete_model(self, model_id: str) -> bool:
-        """Delete a registered model."""
+    def get_all_servers(self, include_inactive: bool = True) -> ListModelServersResponse:
+        """Get all model servers (registered and runtime)."""
         self._initialize()
 
-        if model_id in self._runtime_models:
-            raise ValueError("Cannot delete runtime models specified via environment variables")
+        # Convert registered servers to summaries
+        registered_summaries = []
+        for server in self._registered_servers.values():
+            if include_inactive or server.status == ModelStatus.ACTIVE:
+                summary = ModelServerSummary(
+                    server_id=server.server_id,
+                    server_type=server.server_type,
+                    base_url=server.base_url,
+                    model_count=len(server.models),
+                    status=server.status,
+                    tags=server.tags,
+                    created_at=server.created_at
+                )
+                registered_summaries.append(summary)
 
-        if model_id in self._registered_models:
-            del self._registered_models[model_id]
-            logger.info("Model deleted successfully", model_id=model_id)
+        # Convert runtime servers to summaries
+        runtime_summaries = []
+        for server in self._runtime_servers.values():
+            summary = ModelServerSummary(
+                server_id=server.server_id,
+                server_type=server.server_type,
+                base_url=server.base_url,
+                model_count=len(server.models),
+                status=server.status,
+                tags=server.tags,
+                created_at=server.created_at
+            )
+            runtime_summaries.append(summary)
+
+        # Combine all servers
+        all_summaries = registered_summaries + runtime_summaries
+
+        return ListModelServersResponse(
+            servers=all_summaries,
+            total_servers=len(all_summaries),
+            runtime_servers=runtime_summaries
+        )
+
+    def update_server(self, server_id: str, request: ModelServerUpdateRequest) -> Optional[ModelServer]:
+        """Update an existing registered server."""
+        self._initialize()
+
+        if server_id in self._runtime_servers:
+            raise ValueError("Cannot update runtime servers specified via environment variables")
+
+        if server_id not in self._registered_servers:
+            return None
+
+        server = self._registered_servers[server_id]
+
+        # Update fields that are provided
+        if request.base_url is not None:
+            server.base_url = request.base_url
+        if request.api_key_required is not None:
+            server.api_key_required = request.api_key_required
+        if request.models is not None:
+            server.models = request.models
+        if request.server_config is not None:
+            server.server_config = request.server_config
+        if request.status is not None:
+            server.status = request.status
+        if request.tags is not None:
+            server.tags = request.tags
+
+        server.updated_at = datetime.utcnow()
+
+        logger.info(
+            "Server updated successfully",
+            server_id=server_id
+        )
+
+        return server
+
+    def delete_server(self, server_id: str) -> bool:
+        """Delete a registered server."""
+        self._initialize()
+
+        if server_id in self._runtime_servers:
+            raise ValueError("Cannot delete runtime servers specified via environment variables")
+
+        if server_id in self._registered_servers:
+            del self._registered_servers[server_id]
+            logger.info("Server deleted successfully", server_id=server_id)
             return True
 
         return False
 
-    def get_model_by_id(self, model_id: str) -> Optional[Model]:
-        """Get a model by ID (from either registered or runtime models)."""
-        self._initialize()
-
-        # Check registered models first
-        if model_id in self._registered_models:
-            return self._registered_models[model_id]
-
-        # Check runtime models
-        if model_id in self._runtime_models:
-            return self._runtime_models[model_id]
-
-        return None
-
-    def get_all_models(self, include_inactive: bool = True) -> ListModelsResponse:
-        """Get all models (registered and runtime)."""
-        self._initialize()
-
-        # Convert registered models to summaries
-        registered_summaries = []
-        for model in self._registered_models.values():
-            if include_inactive or model.status == ModelStatus.ACTIVE:
-                summary = ModelSummary(
-                    model_id=model.model_id,
-                    model_name=model.model_name,
-                    description=model.description,
-                    model_type=model.model_type,
-                    base_url=model.base_url,
-                    status=model.status,
-                    tags=model.tags,
-                    created_at=model.created_at
-                )
-                registered_summaries.append(summary)
-
-        # Convert runtime models to summaries
-        runtime_summaries = []
-        for model in self._runtime_models.values():
-            summary = ModelSummary(
-                model_id=model.model_id,
-                model_name=model.model_name,
-                description=model.description,
-                model_type=model.model_type,
-                base_url=model.base_url,
-                status=model.status,
-                tags=model.tags,
-                created_at=model.created_at
-            )
-            runtime_summaries.append(summary)
-
-        # Combine all models
-        all_summaries = registered_summaries + runtime_summaries
-
-        return ListModelsResponse(
-            models=all_summaries,
-            total_models=len(all_summaries),
-            runtime_models=runtime_summaries
-        )
-
-    def search_models(
-        self,
-        model_type: Optional[ModelType] = None,
-        status: Optional[ModelStatus] = None,
-        tags: Optional[List[str]] = None
-    ) -> List[Model]:
-        """Search models by criteria."""
-        self._initialize()
-
-        # Combine all models for searching
-        all_models = list(self._registered_models.values()) + list(self._runtime_models.values())
-
-        filtered_models = []
-        for model in all_models:
-            # Filter by model type
-            if model_type and model.model_type != model_type:
-                continue
-
-            # Filter by status
-            if status and model.status != status:
-                continue
-
-            # Filter by tags
-            if tags and not any(tag in model.tags for tag in tags):
-                continue
-
-            filtered_models.append(model)
-
-        return filtered_models
-
-    def get_active_models(self) -> List[Model]:
-        """Get all active models."""
-        return self.search_models(status=ModelStatus.ACTIVE)
-
-    def reload_runtime_models(self) -> None:
-        """Reload runtime models from environment variables."""
-        self._runtime_models.clear()
-        self._load_runtime_models()
-        logger.info("Runtime models reloaded from environment variables")
+    def reload_runtime_servers(self) -> None:
+        """Reload runtime servers from environment variables."""
+        self._runtime_servers.clear()
+        self._load_runtime_servers()
+        logger.info("Runtime servers reloaded from environment variables")

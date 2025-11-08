@@ -66,6 +66,8 @@ class RequestParser:
 
     async def _validate_evaluation_spec(self, spec: EvaluationSpec, context: str) -> None:
         """Validate a single evaluation specification."""
+        if not spec.model_server_id:
+            raise ValidationError(f"{context}: model_server_id is required")
         if not spec.model_name:
             raise ValidationError(f"{context}: model_name is required")
 

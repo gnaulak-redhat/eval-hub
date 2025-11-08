@@ -173,3 +173,105 @@ class ModelsData(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     models: List[Model] = Field(default_factory=list, description="List of registered models")
+
+
+# Model Server structures
+
+class ServerModel(BaseModel):
+    """A model available on a model server."""
+
+    model_config = ConfigDict(extra="allow")
+
+    model_name: str = Field(..., description="Name of the model on the server")
+    description: Optional[str] = Field(None, description="Model description")
+    capabilities: Optional[ModelCapabilities] = Field(None, description="Model capabilities")
+    config: Optional[ModelConfig] = Field(None, description="Default model configuration")
+    status: ModelStatus = Field(default=ModelStatus.ACTIVE, description="Model status")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+
+
+class ModelServer(BaseModel):
+    """Model server that can host multiple models."""
+
+    model_config = ConfigDict(extra="allow")
+
+    server_id: str = Field(..., description="Unique server identifier")
+    server_type: ModelType = Field(..., description="Type of model server")
+    base_url: str = Field(..., description="Base URL for the server API")
+    api_key_required: bool = Field(default=True, description="Whether an API key is required")
+    models: List[ServerModel] = Field(default_factory=list, description="List of models available on this server")
+    server_config: Optional[ModelConfig] = Field(None, description="Default server-level configuration")
+    status: ModelStatus = Field(default=ModelStatus.ACTIVE, description="Server status")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="When the server was registered")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="When the server was last updated")
+
+    @field_validator('base_url')
+    @classmethod
+    def validate_base_url(cls, v: str) -> str:
+        """Validate that base_url is a valid URL."""
+        if not v.startswith(('http://', 'https://')):
+            raise ValueError("base_url must be a valid HTTP or HTTPS URL")
+        return v
+
+    @field_validator('server_id')
+    @classmethod
+    def validate_server_id(cls, v: str) -> str:
+        """Validate server_id format."""
+        if not v.strip():
+            raise ValueError("server_id cannot be empty")
+        import re
+        if not re.match(r'^[a-zA-Z0-9._-]+$', v):
+            raise ValueError("server_id can only contain letters, numbers, dots, hyphens, and underscores")
+        return v.strip()
+
+
+class ModelServerSummary(BaseModel):
+    """Simplified model server information."""
+
+    model_config = ConfigDict(extra="allow")
+
+    server_id: str = Field(..., description="Unique server identifier")
+    server_type: ModelType = Field(..., description="Type of model server")
+    base_url: str = Field(..., description="Base URL for the server API")
+    model_count: int = Field(..., description="Number of models on this server")
+    status: ModelStatus = Field(..., description="Server status")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    created_at: datetime = Field(..., description="When the server was registered")
+
+
+class ModelServerRegistrationRequest(BaseModel):
+    """Request model for registering a new model server."""
+
+    model_config = ConfigDict(extra="allow")
+
+    server_id: str = Field(..., description="Unique server identifier")
+    server_type: ModelType = Field(..., description="Type of model server")
+    base_url: str = Field(..., description="Base URL for the server API")
+    api_key_required: bool = Field(default=True, description="Whether an API key is required")
+    models: List[ServerModel] = Field(default_factory=list, description="List of models available on this server")
+    server_config: Optional[ModelConfig] = Field(None, description="Default server-level configuration")
+    status: ModelStatus = Field(default=ModelStatus.ACTIVE, description="Server status")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+
+
+class ModelServerUpdateRequest(BaseModel):
+    """Request model for updating an existing model server."""
+
+    model_config = ConfigDict(extra="allow")
+    base_url: Optional[str] = Field(None, description="Base URL for the server API")
+    api_key_required: Optional[bool] = Field(None, description="Whether an API key is required")
+    models: Optional[List[ServerModel]] = Field(None, description="List of models available on this server")
+    server_config: Optional[ModelConfig] = Field(None, description="Default server-level configuration")
+    status: Optional[ModelStatus] = Field(None, description="Server status")
+    tags: Optional[List[str]] = Field(None, description="Tags for categorization")
+
+
+class ListModelServersResponse(BaseModel):
+    """Response for listing all model servers."""
+
+    model_config = ConfigDict(extra="allow")
+
+    servers: List[ModelServerSummary] = Field(..., description="List of available model servers")
+    total_servers: int = Field(..., description="Total number of servers")
+    runtime_servers: List[ModelServerSummary] = Field(default_factory=list, description="Servers specified via environment variables")
