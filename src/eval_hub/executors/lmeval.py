@@ -772,7 +772,7 @@ class LMEvalExecutor(Executor):
             if isinstance(task_results, dict):
                 for metric_name, metric_value in task_results.items():
                     # Skip non-numeric values and metadata
-                    if isinstance(metric_value, (int, float)):
+                    if isinstance(metric_value, int | float):
                         # Use task name as prefix if multiple tasks
                         full_metric_name = (
                             f"{task_name}_{metric_name}"

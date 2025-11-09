@@ -346,7 +346,7 @@ class NemoEvaluatorExecutor(Executor):
             except Exception as e:
                 raise BackendError(
                     f"Failed to parse NeMo Evaluator response: {e}"
-                )  # noqa: B904
+                ) from e
 
     async def _convert_nemo_result_to_eval_hub(
         self, nemo_result: NemoEvaluationResult, context: ExecutionContext

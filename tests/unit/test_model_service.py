@@ -411,7 +411,6 @@ class TestModelServiceRuntimeModels:
         """Test reloading runtime models."""
         # Initialize first
         model_service._initialize()
-        initial_count = len(model_service._runtime_models)
 
         # Reload runtime models
         with patch.dict(

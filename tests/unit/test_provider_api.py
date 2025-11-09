@@ -469,7 +469,7 @@ class TestProviderServiceIntegration:
     def test_benchmark_filtering_logic(self, mock_provider_service):
         """Test benchmark filtering logic."""
         # Test with multiple filters
-        result = mock_provider_service.search_benchmarks(
+        mock_provider_service.search_benchmarks(
             provider_id="test_provider", category="reasoning"
         )
 
@@ -541,7 +541,7 @@ class TestProviderServiceIntegration:
 
         # Simulate concurrent access
         threads = []
-        for i in range(5):
+        for _ in range(5):
             thread = threading.Thread(target=access_providers)
             threads.append(thread)
             thread.start()

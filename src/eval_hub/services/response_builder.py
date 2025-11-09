@@ -174,7 +174,7 @@ class ResponseBuilder:
             for result in completed_results:
                 if metric_name in result.metrics:
                     value = result.metrics[metric_name]
-                    if isinstance(value, (int, float)):
+                    if isinstance(value, int | float):
                         values.append(float(value))
 
             if values:

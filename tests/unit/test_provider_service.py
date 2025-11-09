@@ -395,7 +395,7 @@ class TestProviderService:
 
             # Run multiple threads concurrently
             threads = []
-            for i in range(10):
+            for _ in range(10):
                 thread = threading.Thread(target=access_service)
                 threads.append(thread)
                 thread.start()
@@ -457,7 +457,7 @@ class TestProviderService:
         try:
             with create_provider_service_with_test_data(invalid_file_path) as service:
                 with pytest.raises(
-                    Exception
+                    (ValueError, TypeError)
                 ):  # Should raise validation error when loading
                     service.get_all_providers()
         finally:

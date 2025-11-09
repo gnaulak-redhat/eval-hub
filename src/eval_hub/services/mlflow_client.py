@@ -171,7 +171,7 @@ class MLFlowClient:
             metrics = self._mock_runs[run_id].get("metrics", {})
             # Filter to only numeric metrics
             return {
-                k: float(v) for k, v in metrics.items() if isinstance(v, (int, float))
+                k: float(v) for k, v in metrics.items() if isinstance(v, int | float)
             }
         return {}
 
@@ -225,7 +225,7 @@ class MLFlowClient:
         for run in runs:
             metrics = run.get("metrics", {})
             for metric_name, metric_value in metrics.items():
-                if isinstance(metric_value, (int, float)):
+                if isinstance(metric_value, int | float):
                     if metric_name not in all_metrics:
                         all_metrics[metric_name] = []
                     all_metrics[metric_name].append(float(metric_value))

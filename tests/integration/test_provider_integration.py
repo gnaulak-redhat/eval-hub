@@ -341,7 +341,7 @@ class TestProviderEndpointsIntegration:
         assert response.status_code == 200
 
         benchmarks = response.json()["benchmarks"]
-        categories = set(b["category"] for b in benchmarks)
+        categories = {b["category"] for b in benchmarks}
 
         expected_categories = {
             "reasoning",
@@ -405,7 +405,7 @@ class TestProviderEndpointsIntegration:
         benchmarks = response.json()["benchmarks"]
 
         # Get available providers for reference
-        available_providers = set(b["provider_id"] for b in benchmarks)
+        available_providers = {b["provider_id"] for b in benchmarks}
 
         # Validate each collection structure
         for collection in collections:
