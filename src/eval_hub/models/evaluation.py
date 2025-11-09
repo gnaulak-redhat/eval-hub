@@ -81,7 +81,7 @@ class EvaluationSpec(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="Unique evaluation ID")
     name: str = Field(..., description="Human-readable evaluation name")
     description: str | None = Field(None, description="Evaluation description")
-    model_server_id: str = Field(..., description="Model server identifier")
+    model_server_id: str | None = Field(None, description="Model server identifier")
     model_name: str = Field(..., description="Name of the model on the server")
     model_configuration: dict[str, Any] = Field(
         default_factory=dict, description="Model configuration"

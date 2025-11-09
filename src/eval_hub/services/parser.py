@@ -67,8 +67,7 @@ class RequestParser:
         self, spec: EvaluationSpec, context: str
     ) -> None:
         """Validate a single evaluation specification."""
-        if not spec.model_server_id:
-            raise ValidationError(f"{context}: model_server_id is required")
+        # model_server_id is optional during parsing - will be validated/derived during execution
         if not spec.model_name:
             raise ValidationError(f"{context}: model_name is required")
 

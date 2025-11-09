@@ -444,3 +444,52 @@ class TestUtils:
 def test_utils():
     """Provide test utilities."""
     return TestUtils
+
+
+@pytest.fixture
+def live_server():
+    """Start a live HTTP server for integration testing."""
+    import socket
+    import threading
+
+    import uvicorn
+
+    from eval_hub.api.app import create_app
+
+    # Find an available port
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.close()
+
+    app = create_app()
+    server_config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    server = uvicorn.Server(server_config)
+
+    # Start server in a separate thread
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+
+    # Wait for server to be ready
+    import time
+
+    max_attempts = 30
+    for _ in range(max_attempts):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex(("127.0.0.1", port))
+            sock.close()
+            if result == 0:
+                break
+        except Exception:
+            pass
+        time.sleep(0.1)
+    else:
+        raise RuntimeError("Server failed to start")
+
+    base_url = f"http://127.0.0.1:{port}"
+
+    yield base_url
+
+    # Server will be stopped when thread exits (daemon=True)
