@@ -97,14 +97,16 @@ class RequestParser:
             raise ValidationError(f"{context}: must specify at least one benchmark")
 
         # Check if backend type is supported
-        supported_backends = self.settings.backend_configs.keys()
-        if (
-            backend.type not in [BackendType.CUSTOM]
-            and backend.name not in supported_backends
-        ):
+        from ..executors.factory import ExecutorFactory
+
+        if backend.type == BackendType.CUSTOM:
+            # Custom backends don't need executor validation
+            pass
+        elif not ExecutorFactory.is_backend_supported(backend.type.value):
+            supported_backends = ExecutorFactory.get_supported_backend_types()
             raise ValidationError(
-                f"{context}: unsupported backend '{backend.name}'. "
-                f"Supported backends: {list(supported_backends)}"
+                f"{context}: unsupported backend type '{backend.type.value}'. "
+                f"Supported backend types: {supported_backends}"
             )
 
         # Validate benchmarks

@@ -221,20 +221,45 @@ class EvaluationExecutor:
     ) -> EvaluationResult:
         """Execute a single benchmark on a specific backend."""
         async with self.execution_semaphore:
-            # Resolve model server and model
-            model_server_base_url = None
-            if self.model_service:
-                server_model = self.model_service.get_model_on_server(
-                    evaluation.model_server_id, evaluation.model_name
+            # Resolve model server and model - fail if server not found
+            if not evaluation.model_server_id:
+                raise BackendError(
+                    f"Model server ID is required but not provided for evaluation {evaluation.id}"
                 )
-                if server_model:
-                    server, _ = server_model
+
+            if not self.model_service:
+                raise BackendError(
+                    f"Model service is not available, cannot resolve server for evaluation {evaluation.id}"
+                )
+
+            model_server_base_url = None
+            server_model = self.model_service.get_model_on_server(
+                evaluation.model_server_id, evaluation.model_name
+            )
+            if server_model:
+                server, _ = server_model
+                model_server_base_url = server.base_url
+                self.logger.info(
+                    "Found model server and model, using base_url",
+                    server_id=evaluation.model_server_id,
+                    model_name=evaluation.model_name,
+                    base_url=model_server_base_url,
+                )
+            else:
+                # Try to get server even if model not found
+                server = self.model_service.get_server_by_id(evaluation.model_server_id)
+                if server:
                     model_server_base_url = server.base_url
-                else:
                     self.logger.warning(
-                        "Model server or model not found, proceeding without base_url",
+                        "Model not found on server, but using server base_url",
                         server_id=evaluation.model_server_id,
                         model_name=evaluation.model_name,
+                        base_url=model_server_base_url,
+                    )
+                else:
+                    raise BackendError(
+                        f"Model server '{evaluation.model_server_id}' not found. "
+                        f"Cannot proceed without base_url for evaluation {evaluation.id}"
                     )
 
             context = ExecutionContext(
