@@ -209,3 +209,7 @@ def create_app() -> FastAPI:
     )
 
     return app
+
+
+# Create app instance for uvicorn to find
+app = create_app()
