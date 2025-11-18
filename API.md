@@ -373,16 +373,16 @@ curl -X GET "{{baseUrl}}/evaluations/jobs/550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
-#### **GET** `/evaluations` \- List Evaluations
+#### **GET** `/evaluations/jobs` \- List Evaluations
 
 **Purpose**: List all evaluation requests with filtering capabilities **Response Model**: Array of `EvaluationResponse`
 
 ```shell
 # List evaluations with filters
-curl -X GET "{{baseUrl}}/evaluations?limit=10&status_filter=running"
+curl -X GET "{{baseUrl}}/evaluations/jobs?limit=10&status_filter=running"
 
 # List all evaluations (default limit: 50, max: 100)
-curl -X GET "{{baseUrl}}/evaluations"
+curl -X GET "{{baseUrl}}/evaluations/jobs"
 ```
 
 #### **DELETE** `/evaluations/jobs/{id}` \- Cancel Evaluation

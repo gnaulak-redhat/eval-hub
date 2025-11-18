@@ -164,11 +164,91 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/evaluations/jobs/{id}": {
+      "get": {
+        "summary": "Get Evaluation Status",
+        "description": "Get the status of an evaluation request.",
+        "operationId": "get_evaluation_status_api_v1_evaluations_jobs__id__get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       },
+      "delete": {
+        "summary": "Cancel Evaluation",
+        "description": "Cancel a running evaluation.",
+        "operationId": "cancel_evaluation_api_v1_evaluations_jobs__id__delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evaluations/jobs": {
       "get": {
         "summary": "List Evaluations",
         "description": "List all evaluation requests.",
-        "operationId": "list_evaluations_api_v1_evaluations_get",
+        "operationId": "list_evaluations_api_v1_evaluations_jobs_get",
         "parameters": [
           {
             "name": "limit",
@@ -213,7 +293,7 @@
                   "items": {
                     "$ref": "#/components/schemas/EvaluationResponse"
                   },
-                  "title": "Response List Evaluations Api V1 Evaluations Get"
+                  "title": "Response List Evaluations Api V1 Evaluations Jobs Get"
                 }
               }
             }
@@ -231,89 +311,11 @@
         }
       }
     },
-    "/api/v1/evaluations/{id}": {
-      "get": {
-        "summary": "Get Evaluation Status",
-        "description": "Get the status of an evaluation request.",
-        "operationId": "get_evaluation_status_api_v1_evaluations__id__get",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EvaluationResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Cancel Evaluation",
-        "description": "Cancel a running evaluation.",
-        "operationId": "cancel_evaluation_api_v1_evaluations__id__delete",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/evaluations/{id}/summary": {
+    "/api/v1/evaluations/jobs/{id}/summary": {
       "get": {
         "summary": "Get Evaluation Summary",
         "description": "Get a summary of an evaluation request.",
-        "operationId": "get_evaluation_summary_api_v1_evaluations__id__summary_get",
+        "operationId": "get_evaluation_summary_api_v1_evaluations_jobs__id__summary_get",
         "parameters": [
           {
             "name": "id",
@@ -334,7 +336,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Evaluation Summary Api V1 Evaluations  Id  Summary Get"
+                  "title": "Response Get Evaluation Summary Api V1 Evaluations Jobs  Id  Summary Get"
                 }
               }
             }

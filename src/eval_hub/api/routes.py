@@ -446,7 +446,7 @@ async def create_evaluation(
         ) from e
 
 
-@router.get("/evaluations/{id}", response_model=EvaluationResponse)
+@router.get("/evaluations/jobs/{id}", response_model=EvaluationResponse)
 async def get_evaluation_status(
     id: UUID,
     response_builder: ResponseBuilder = Depends(get_response_builder),
@@ -472,7 +472,7 @@ async def get_evaluation_status(
     return response
 
 
-@router.get("/evaluations", response_model=list[EvaluationResponse])
+@router.get("/evaluations/jobs", response_model=list[EvaluationResponse])
 async def list_evaluations(
     limit: int = Query(
         50, ge=1, le=100, description="Maximum number of evaluations to return"
@@ -499,7 +499,7 @@ async def list_evaluations(
     return evaluations
 
 
-@router.delete("/evaluations/{id}")
+@router.delete("/evaluations/jobs/{id}")
 async def cancel_evaluation(
     id: UUID,
     executor: EvaluationExecutor = Depends(get_evaluation_executor),
@@ -532,7 +532,7 @@ async def cancel_evaluation(
     )
 
 
-@router.get("/evaluations/{id}/summary")
+@router.get("/evaluations/jobs/{id}/summary")
 async def get_evaluation_summary(
     id: UUID,
     response_builder: ResponseBuilder = Depends(get_response_builder),
