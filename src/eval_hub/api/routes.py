@@ -142,6 +142,7 @@ async def health_check(settings: Settings = Depends(get_settings)) -> HealthResp
     "/evaluations/benchmarks/{provider_id}/{benchmark_id}",
     response_model=EvaluationResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    tags=["Benchmarks"],
 )
 async def create_single_benchmark_evaluation(
     provider_id: str,
@@ -338,9 +339,10 @@ async def create_single_benchmark_evaluation(
 
 
 @router.post(
-    "/evaluations",
+    "/evaluations/jobs",
     response_model=EvaluationResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    tags=["Benchmarks"],
 )
 async def create_evaluation(
     request: EvaluationRequest,
@@ -446,7 +448,9 @@ async def create_evaluation(
         ) from e
 
 
-@router.get("/evaluations/jobs/{id}", response_model=EvaluationResponse)
+@router.get(
+    "/evaluations/jobs/{id}", response_model=EvaluationResponse, tags=["Benchmarks"]
+)
 async def get_evaluation_status(
     id: UUID,
     response_builder: ResponseBuilder = Depends(get_response_builder),
@@ -472,7 +476,9 @@ async def get_evaluation_status(
     return response
 
 
-@router.get("/evaluations/jobs", response_model=list[EvaluationResponse])
+@router.get(
+    "/evaluations/jobs", response_model=list[EvaluationResponse], tags=["Benchmarks"]
+)
 async def list_evaluations(
     limit: int = Query(
         50, ge=1, le=100, description="Maximum number of evaluations to return"
@@ -499,7 +505,7 @@ async def list_evaluations(
     return evaluations
 
 
-@router.delete("/evaluations/jobs/{id}")
+@router.delete("/evaluations/jobs/{id}", tags=["Benchmarks"])
 async def cancel_evaluation(
     id: UUID,
     executor: EvaluationExecutor = Depends(get_evaluation_executor),
@@ -532,7 +538,7 @@ async def cancel_evaluation(
     )
 
 
-@router.get("/evaluations/jobs/{id}/summary")
+@router.get("/evaluations/jobs/{id}/summary", tags=["Benchmarks"])
 async def get_evaluation_summary(
     id: UUID,
     response_builder: ResponseBuilder = Depends(get_response_builder),
@@ -631,7 +637,11 @@ async def get_provider(
     return provider
 
 
-@router.get("/benchmarks", response_model=ListBenchmarksResponse)
+@router.get(
+    "/evaluations/benchmarks",
+    response_model=ListBenchmarksResponse,
+    tags=["Benchmarks"],
+)
 async def list_all_benchmarks(
     provider_id: str | None = Query(None, description="Filter by provider ID"),
     category: str | None = Query(None, description="Filter by benchmark category"),
@@ -678,35 +688,6 @@ async def list_all_benchmarks(
     else:
         # Return all benchmarks
         return provider_service.get_all_benchmarks()
-
-
-@router.get(
-    "/evaluations/providers/{provider_id}/benchmarks",
-    response_model=list[BenchmarkDetail],
-    tags=["Providers"],
-)
-async def list_provider_benchmarks(
-    provider_id: str,
-    provider_service: ProviderService = Depends(get_provider_service),
-) -> list[BenchmarkDetail]:
-    """List benchmarks for a specific provider."""
-    # Verify provider exists
-    provider = provider_service.get_provider_by_id(provider_id)
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Provider {provider_id} not found",
-        )
-
-    benchmarks = provider_service.get_benchmarks_by_provider(provider_id)
-
-    logger.info(
-        "Listed provider benchmarks",
-        provider_id=provider_id,
-        benchmark_count=len(benchmarks),
-    )
-
-    return benchmarks
 
 
 @router.get(

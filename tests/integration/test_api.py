@@ -71,7 +71,7 @@ class TestAPIEndpoints:
                 "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
                 return_value="http://test-mlflow:5000/#/experiments/1",
             ):
-                response = client.post("/api/v1/evaluations", json=request_data)
+                response = client.post("/api/v1/evaluations/jobs", json=request_data)
 
         assert response.status_code == 202
         data = response.json()
@@ -114,7 +114,7 @@ class TestAPIEndpoints:
                 "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
                 return_value="http://test-mlflow:5000/#/experiments/2",
             ):
-                response = client.post("/api/v1/evaluations", json=request_data)
+                response = client.post("/api/v1/evaluations/jobs", json=request_data)
 
         assert response.status_code == 202
         data = response.json()
@@ -137,7 +137,7 @@ class TestAPIEndpoints:
             ]
         }
 
-        response = client.post("/api/v1/evaluations", json=request_data)
+        response = client.post("/api/v1/evaluations/jobs", json=request_data)
 
         assert response.status_code == 400
         data = response.json()
@@ -262,7 +262,7 @@ class TestAPIEndpoints:
                 ):
                     # Test synchronous mode
                     response = client.post(
-                        "/api/v1/evaluations?async_mode=false", json=request_data
+                        "/api/v1/evaluations/jobs?async_mode=false", json=request_data
                     )
 
         assert response.status_code == 202
@@ -279,7 +279,7 @@ class TestAPIEndpoints:
     def test_invalid_request_format(self, client):
         """Test handling of invalid JSON request."""
         response = client.post(
-            "/api/v1/evaluations",
+            "/api/v1/evaluations/jobs",
             data="invalid json",
             headers={"Content-Type": "application/json"},
         )
@@ -297,6 +297,6 @@ class TestAPIEndpoints:
             ]
         }
 
-        response = client.post("/api/v1/evaluations", json=request_data)
+        response = client.post("/api/v1/evaluations/jobs", json=request_data)
 
         assert response.status_code == 422  # Validation error

@@ -279,7 +279,7 @@ class TestProviderAPI:
         """Test successful listing of all benchmarks."""
         client, mock_service = client_with_mock_provider
 
-        response = client.get("/api/v1/benchmarks")
+        response = client.get("/api/v1/evaluations/benchmarks")
 
         assert response.status_code == 200
         data = response.json()
@@ -319,7 +319,9 @@ class TestProviderAPI:
             for b in filtered_benchmarks
         ]
 
-        response = client.get("/api/v1/benchmarks?provider_id=test_provider")
+        response = client.get(
+            "/api/v1/evaluations/benchmarks?provider_id=test_provider"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -356,7 +358,7 @@ class TestProviderAPI:
             for b in filtered_benchmarks
         ]
 
-        response = client.get("/api/v1/benchmarks?category=reasoning")
+        response = client.get("/api/v1/evaluations/benchmarks?category=reasoning")
 
         assert response.status_code == 200
         data = response.json()
@@ -393,7 +395,7 @@ class TestProviderAPI:
             for b in filtered_benchmarks
         ]
 
-        response = client.get("/api/v1/benchmarks?tags=test")
+        response = client.get("/api/v1/evaluations/benchmarks?tags=test")
 
         assert response.status_code == 200
         data = response.json()
@@ -406,29 +408,36 @@ class TestProviderAPI:
         """Test successful retrieval of provider-specific benchmarks."""
         client, mock_service = client_with_mock_provider
 
-        response = client.get("/api/v1/evaluations/providers/test_provider/benchmarks")
+        response = client.get(
+            "/api/v1/evaluations/benchmarks?provider_id=test_provider"
+        )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert isinstance(data, list)
-        assert len(data) == 2
-        assert all(b["provider_id"] == "test_provider" for b in data)
+        assert "benchmarks" in data
+        assert "total_count" in data
+        assert "providers_included" in data
+        assert len(data["benchmarks"]) == 2
+        assert all(b["provider_id"] == "test_provider" for b in data["benchmarks"])
 
     def test_get_benchmarks_by_provider_not_found(self, client_with_mock_provider):
-        """Test getting benchmarks for non-existent provider."""
+        """Test getting benchmarks for non-existent provider returns empty results."""
         client, mock_service = client_with_mock_provider
 
-        # Mock service to return None for non-existent provider
-        mock_service.get_provider_by_id.return_value = None
+        # Mock service to return empty results for non-existent provider
+        mock_service.search_benchmarks.return_value = []
 
         response = client.get(
-            "/api/v1/evaluations/providers/nonexistent_provider/benchmarks"
+            "/api/v1/evaluations/benchmarks?provider_id=nonexistent_provider"
         )
 
-        assert response.status_code == 404
+        assert response.status_code == 200
         data = response.json()
-        assert "not found" in data["detail"].lower()
+        assert "benchmarks" in data
+        assert "total_count" in data
+        assert data["total_count"] == 0
+        assert len(data["benchmarks"]) == 0
 
     def test_list_collections_success(self, client_with_mock_provider):
         """Test successful listing of collections."""
@@ -581,10 +590,10 @@ class TestAPIValidation:
 
         # Test with various query parameter values
         test_cases = [
-            "/api/v1/benchmarks?provider_id=",  # Empty provider_id
-            "/api/v1/benchmarks?category=",  # Empty category
-            "/api/v1/benchmarks?tags=",  # Empty tags
-            "/api/v1/benchmarks?invalid_param=test",  # Invalid parameter
+            "/api/v1/evaluations/benchmarks?provider_id=",  # Empty provider_id
+            "/api/v1/evaluations/benchmarks?category=",  # Empty category
+            "/api/v1/evaluations/benchmarks?tags=",  # Empty tags
+            "/api/v1/evaluations/benchmarks?invalid_param=test",  # Invalid parameter
         ]
 
         for url in test_cases:
@@ -621,7 +630,7 @@ class TestAPIValidation:
         )
 
         # Test API can handle large response
-        response = client.get("/api/v1/benchmarks")
+        response = client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
         data = response.json()
         assert len(data["benchmarks"]) == 100

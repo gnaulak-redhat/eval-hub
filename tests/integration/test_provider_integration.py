@@ -264,7 +264,7 @@ class TestProviderEndpointsIntegration:
         assert len(lm_eval_data["benchmarks"]) == 168  # Real data has 168 benchmarks
 
         # Step 3: List all benchmarks
-        response = integration_client.get("/api/v1/benchmarks")
+        response = integration_client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
 
         benchmarks_data = response.json()
@@ -278,14 +278,17 @@ class TestProviderEndpointsIntegration:
 
         # Step 4: Get provider-specific benchmarks
         response = integration_client.get(
-            "/api/v1/evaluations/providers/lm_evaluation_harness/benchmarks"
+            "/api/v1/evaluations/benchmarks?provider_id=lm_evaluation_harness"
         )
         assert response.status_code == 200
 
-        lm_eval_benchmarks = response.json()
-        assert len(lm_eval_benchmarks) == 168  # Real data has 168 lm_eval benchmarks
+        lm_eval_benchmarks_data = response.json()
+        assert (
+            len(lm_eval_benchmarks_data["benchmarks"]) == 168
+        )  # Real data has 168 lm_eval benchmarks
         assert all(
-            b["provider_id"] == "lm_evaluation_harness" for b in lm_eval_benchmarks
+            b["provider_id"] == "lm_evaluation_harness"
+            for b in lm_eval_benchmarks_data["benchmarks"]
         )
 
         # Step 5: List collections
@@ -300,7 +303,7 @@ class TestProviderEndpointsIntegration:
         """Test various benchmark filtering scenarios."""
         # Test filter by provider
         response = integration_client.get(
-            "/api/v1/benchmarks?provider_id=lm_evaluation_harness"
+            "/api/v1/evaluations/benchmarks?provider_id=lm_evaluation_harness"
         )
         assert response.status_code == 200
         data = response.json()
@@ -311,7 +314,9 @@ class TestProviderEndpointsIntegration:
         )
 
         # Test filter by category
-        response = integration_client.get("/api/v1/benchmarks?category=safety")
+        response = integration_client.get(
+            "/api/v1/evaluations/benchmarks?category=safety"
+        )
         assert response.status_code == 200
         data = response.json()
         safety_benchmarks = data["benchmarks"]
@@ -319,7 +324,9 @@ class TestProviderEndpointsIntegration:
         assert all(b["category"] == "safety" for b in safety_benchmarks)
 
         # Test filter by tags
-        response = integration_client.get("/api/v1/benchmarks?tags=reasoning")
+        response = integration_client.get(
+            "/api/v1/evaluations/benchmarks?tags=reasoning"
+        )
         assert response.status_code == 200
         data = response.json()
         reasoning_benchmarks = data["benchmarks"]
@@ -328,7 +335,7 @@ class TestProviderEndpointsIntegration:
 
         # Test multiple filters
         response = integration_client.get(
-            "/api/v1/benchmarks?provider_id=garak&category=safety"
+            "/api/v1/evaluations/benchmarks?provider_id=garak&category=safety"
         )
         assert response.status_code == 200
         data = response.json()
@@ -338,7 +345,7 @@ class TestProviderEndpointsIntegration:
 
     def test_category_diversity(self, integration_client):
         """Test that we have good category diversity in our test data."""
-        response = integration_client.get("/api/v1/benchmarks")
+        response = integration_client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
 
         benchmarks = response.json()["benchmarks"]
@@ -366,7 +373,7 @@ class TestProviderEndpointsIntegration:
 
     def test_benchmark_metrics_consistency(self, integration_client):
         """Test that benchmark metrics are consistent and valid."""
-        response = integration_client.get("/api/v1/benchmarks")
+        response = integration_client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
 
         benchmarks = response.json()["benchmarks"]
@@ -379,7 +386,7 @@ class TestProviderEndpointsIntegration:
 
     def test_large_dataset_handling(self, integration_client):
         """Test handling of various dataset sizes."""
-        response = integration_client.get("/api/v1/benchmarks")
+        response = integration_client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
 
         benchmarks = response.json()["benchmarks"]
@@ -401,7 +408,7 @@ class TestProviderEndpointsIntegration:
         collections = collections_data["collections"]
 
         # Get all benchmarks for reference
-        response = integration_client.get("/api/v1/benchmarks")
+        response = integration_client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
         benchmarks = response.json()["benchmarks"]
 
@@ -441,15 +448,21 @@ class TestProviderEndpointsIntegration:
         assert response.status_code == 404
 
         response = integration_client.get(
-            "/api/v1/evaluations/providers/nonexistent/benchmarks"
+            "/api/v1/evaluations/benchmarks?provider_id=nonexistent"
         )
-        assert response.status_code == 404
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["total_count"] == 0
+        )  # Should return empty list for nonexistent provider
 
         # Test invalid query parameters (should handle gracefully)
-        response = integration_client.get("/api/v1/benchmarks?provider_id=")
+        response = integration_client.get("/api/v1/evaluations/benchmarks?provider_id=")
         assert response.status_code == 200  # Should return all benchmarks
 
-        response = integration_client.get("/api/v1/benchmarks?category=nonexistent")
+        response = integration_client.get(
+            "/api/v1/evaluations/benchmarks?category=nonexistent"
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["total_count"] == 0  # Should return empty list
@@ -466,7 +479,7 @@ class TestProviderEndpointsIntegration:
             assert field in providers_data
 
         # Test benchmarks response format
-        response = integration_client.get("/api/v1/benchmarks")
+        response = integration_client.get("/api/v1/evaluations/benchmarks")
         assert response.status_code == 200
         benchmarks_data = response.json()
 
@@ -490,10 +503,10 @@ class TestProviderEndpointsIntegration:
         # Measure response times for key endpoints
         endpoints = [
             "/api/v1/evaluations/providers",
-            "/api/v1/benchmarks",
+            "/api/v1/evaluations/benchmarks",
             "/api/v1/collections",
             "/api/v1/evaluations/providers/lm_evaluation_harness",
-            "/api/v1/evaluations/providers/lm_evaluation_harness/benchmarks",
+            "/api/v1/evaluations/benchmarks?provider_id=lm_evaluation_harness",
         ]
 
         response_times = []
@@ -530,8 +543,7 @@ class TestProviderEndpointsIntegration:
         expected_paths = [
             "/api/v1/evaluations/providers",
             "/api/v1/evaluations/providers/{provider_id}",
-            "/api/v1/benchmarks",
-            "/api/v1/evaluations/providers/{provider_id}/benchmarks",
+            "/api/v1/evaluations/benchmarks",
             "/api/v1/collections",
         ]
 

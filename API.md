@@ -609,22 +609,22 @@ curl -X GET "{{baseUrl}}/evaluations/providers/lm_evaluation_harness"
 
 ### Benchmark Management Endpoints
 
-#### **GET** `/benchmarks` \- List All Benchmarks
+#### **GET** `/evaluations/benchmarks` \- List All Benchmarks
 
 **Purpose**: Discover available benchmarks across all providers with filtering **Response Model**: `ListBenchmarksResponse`
 
 ```shell
 # List all benchmarks
-curl -X GET "{{baseUrl}}/benchmarks"
+curl -X GET "{{baseUrl}}/evaluations/benchmarks"
 
 # Filter by provider
-curl -X GET "{{baseUrl}}/benchmarks?provider_id=lm_evaluation_harness"
+curl -X GET "{{baseUrl}}/evaluations/benchmarks?provider_id=lm_evaluation_harness"
 
 # Filter by category
-curl -X GET "{{baseUrl}}/benchmarks?category=reasoning"
+curl -X GET "{{baseUrl}}/evaluations/benchmarks?category=reasoning"
 
 # Filter by tags
-curl -X GET "{{baseUrl}}/benchmarks?tags=math,science"
+curl -X GET "{{baseUrl}}/evaluations/benchmarks?tags=math,science"
 ```
 
 **Response Example**:
@@ -673,13 +673,6 @@ curl -X GET "{{baseUrl}}/benchmarks?tags=math,science"
 
 **Commentary**: Unified benchmark catalog across providers. Each benchmark has a clean `benchmark_id` and separate `provider_id` for clarity. Supports powerful filtering by provider, category, and tags for targeted discovery.
 
-#### **GET** `/evaluations/providers/{provider_id}/benchmarks` \- Provider-Specific Benchmarks
-
-**Purpose**: Get benchmarks for a specific provider
-
-```shell
-curl -X GET "{{baseUrl}}/evaluations/providers/lm_evaluation_harness/benchmarks"
-```
 
 #### **GET** `/evaluations/providers/{provider_id}/benchmarks/{benchmark_id}` \- Get Benchmark Details
 
@@ -1006,16 +999,16 @@ eval_hub_system_gpu_usage_percent 89.3
 
 # HELP eval_hub_api_requests_total Total API requests
 # TYPE eval_hub_api_requests_total counter
-eval_hub_api_requests_total{method="GET",endpoint="/evaluations"} 1234
-eval_hub_api_requests_total{method="POST",endpoint="/evaluations"} 456
-eval_hub_api_requests_total{method="GET",endpoint="/providers"} 789
+eval_hub_api_requests_total{method="GET",endpoint="/evaluations/jobs"} 1234
+eval_hub_api_requests_total{method="POST",endpoint="/evaluations/jobs"} 456
+eval_hub_api_requests_total{method="GET",endpoint="/evaluations/providers"} 789
 
 # HELP eval_hub_api_request_duration_seconds API request duration
 # TYPE eval_hub_api_request_duration_seconds histogram
-eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations",le="0.1"} 567
-eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations",le="0.5"} 1123
-eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations",le="1.0"} 1198
-eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations",le="+Inf"} 1234
+eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations/jobs",le="0.1"} 567
+eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations/jobs",le="0.5"} 1123
+eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations/jobs",le="1.0"} 1198
+eval_hub_api_request_duration_seconds_bucket{method="GET",endpoint="/evaluations/jobs",le="+Inf"} 1234
 ```
 
 **Commentary**: Standard Prometheus metrics format for integration with monitoring systems like Grafana, AlertManager, and Prometheus servers. Includes evaluation metrics, system resource usage, provider statistics, and API performance metrics.
