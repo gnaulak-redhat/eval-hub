@@ -342,10 +342,14 @@ class ResponseBuilder:
         # Provider insights
         providers_used_val = aggregated_metrics.get("providers_used", 0)
         providers_used = (
-            int(providers_used_val) if isinstance(providers_used_val, int | float) else 0
+            int(providers_used_val)
+            if isinstance(providers_used_val, int | float)
+            else 0
         )
         if providers_used > 1:
-            insights.append(f"Multi-provider evaluation across {providers_used} providers")
+            insights.append(
+                f"Multi-provider evaluation across {providers_used} providers"
+            )
 
         return {
             "request_id": str(request.request_id),

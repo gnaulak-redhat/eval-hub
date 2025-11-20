@@ -52,15 +52,17 @@ class TestAPIEndpoints:
         assert "components" in data
 
     def test_create_evaluation_with_risk_category(self, client):
-        """Test creating evaluation with risk category."""
+        """Test creating evaluation with basic benchmarks."""
         request_data = {
-            "evaluations": [
+            "model": {"url": "http://test-server:8000", "name": "test-model"},
+            "benchmarks": [
                 {
-                    "name": "Test Evaluation",
-                    "model": {"url": "http://test-server:8000", "name": "test-model"},
-                    "risk_category": "low",
+                    "benchmark_id": "arc_easy",
+                    "provider_id": "lm_evaluation_harness",
+                    "config": {"num_fewshot": 0, "limit": 100},
                 }
-            ]
+            ],
+            "experiment_name": "Test Evaluation",
         }
 
         with patch(
@@ -82,28 +84,22 @@ class TestAPIEndpoints:
         assert "experiment_url" in data
 
     def test_create_evaluation_with_explicit_backends(self, client):
-        """Test creating evaluation with explicit backends."""
+        """Test creating evaluation with multiple benchmarks."""
         request_data = {
-            "evaluations": [
+            "model": {"url": "http://test-server:8000", "name": "test-model"},
+            "benchmarks": [
                 {
-                    "name": "Explicit Backend Test",
-                    "model": {"url": "http://test-server:8000", "name": "test-model"},
-                    "backends": [
-                        {
-                            "name": "lm-evaluation-harness",
-                            "type": "lm-evaluation-harness",
-                            "benchmarks": [
-                                {
-                                    "name": "hellaswag",
-                                    "tasks": ["hellaswag"],
-                                    "num_fewshot": 5,
-                                    "limit": 100,
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ]
+                    "benchmark_id": "arc_easy",
+                    "provider_id": "lm_evaluation_harness",
+                    "config": {"num_fewshot": 0, "limit": 100},
+                },
+                {
+                    "benchmark_id": "blimp",
+                    "provider_id": "lm_evaluation_harness",
+                    "config": {"num_fewshot": 0, "limit": 50},
+                },
+            ],
+            "experiment_name": "Explicit Backend Test",
         }
 
         with patch(
@@ -120,21 +116,22 @@ class TestAPIEndpoints:
         data = response.json()
 
         assert "request_id" in data
-        assert data["total_evaluations"] == 1
+        assert data["total_evaluations"] == 2  # Updated to match 2 benchmarks
 
     def test_create_evaluation_validation_error(self, client):
         """Test validation error for invalid evaluation request."""
         request_data = {
-            "evaluations": [
+            "model": {
+                "url": "http://test-server:8000",
+                "name": "",  # Empty model name should fail validation
+            },
+            "benchmarks": [
                 {
-                    "name": "Invalid Test",
-                    "model": {
-                        "url": "http://test-server:8000",
-                        "name": "",
-                    },  # Empty model name should fail validation
-                    "risk_category": "low",
+                    "benchmark_id": "arc_easy",
+                    "provider_id": "lm_evaluation_harness",
+                    "config": {},
                 }
-            ]
+            ],
         }
 
         response = client.post("/api/v1/evaluations/jobs", json=request_data)
@@ -239,13 +236,16 @@ class TestAPIEndpoints:
     def test_async_mode_parameter(self, client):
         """Test async mode parameter in evaluation creation."""
         request_data = {
-            "evaluations": [
+            "model": {"url": "http://test-server:8000", "name": "test-model"},
+            "benchmarks": [
                 {
-                    "name": "Sync Test",
-                    "model": {"url": "http://test-server:8000", "name": "test-model"},
-                    "risk_category": "low",
+                    "benchmark_id": "arc_easy",
+                    "provider_id": "lm_evaluation_harness",
+                    "config": {"num_fewshot": 0, "limit": 100},
                 }
-            ]
+            ],
+            "experiment_name": "Sync Test",
+            "async_mode": False,
         }
 
         with patch(
@@ -262,7 +262,7 @@ class TestAPIEndpoints:
                 ):
                     # Test synchronous mode
                     response = client.post(
-                        "/api/v1/evaluations/jobs?async_mode=false", json=request_data
+                        "/api/v1/evaluations/jobs", json=request_data
                     )
 
         assert response.status_code == 202

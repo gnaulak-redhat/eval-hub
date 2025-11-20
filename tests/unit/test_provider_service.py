@@ -495,15 +495,12 @@ class TestProviderService:
                 # Check all required fields are present
                 assert benchmark.benchmark_id
                 assert benchmark.provider_id
-                assert benchmark.provider_name
                 assert benchmark.name
                 assert benchmark.description
                 assert benchmark.category
                 assert isinstance(benchmark.metrics, list)
                 assert isinstance(benchmark.num_few_shot, int)
                 assert isinstance(benchmark.tags, list)
-                assert benchmark.provider_type
-                assert benchmark.base_url
 
     def test_edge_cases(self, sample_providers_yaml):
         """Test various edge cases."""

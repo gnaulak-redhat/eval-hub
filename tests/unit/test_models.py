@@ -223,14 +223,14 @@ class TestEvaluationModels:
         model = Model(
             url="http://test-server:8000",
             name="test-model",
-            configuration={"temperature": 0.1, "max_tokens": 512}
+            configuration={"temperature": 0.1, "max_tokens": 512},
         )
 
         assert model.url == "http://test-server:8000"
         assert model.name == "test-model"
         assert model.configuration == {"temperature": 0.1, "max_tokens": 512}
 
-    def test_model_defaults(self):
+    def test_model_model_defaults(self):
         """Test Model model default values."""
         model = Model(url="http://test-server:8000", name="test-model")
         assert model.url == "http://test-server:8000"
@@ -248,8 +248,8 @@ class TestEvaluationModels:
                 "batch_size": 16,
                 "include_path": "./custom_prompts/mmlu_cot.yaml",
                 "fewshot_as_multiturn": False,
-                "trust_remote_code": False
-            }
+                "trust_remote_code": False,
+            },
         )
 
         assert config.benchmark_id == "mmlu"
@@ -264,8 +264,7 @@ class TestEvaluationModels:
     def test_benchmark_config_minimal(self):
         """Test BenchmarkConfig with minimal required fields."""
         config = BenchmarkConfig(
-            benchmark_id="arc_easy",
-            provider_id="lm_evaluation_harness"
+            benchmark_id="arc_easy", provider_id="lm_evaluation_harness"
         )
 
         assert config.benchmark_id == "arc_easy"
@@ -277,11 +276,7 @@ class TestEvaluationModels:
         model = Model(
             url="http://test-server:8000",
             name="meta-llama/llama-3.1-8b",
-            configuration={
-                "temperature": 0.1,
-                "max_tokens": 512,
-                "top_p": 0.95
-            }
+            configuration={"temperature": 0.1, "max_tokens": 512, "top_p": 0.95},
         )
 
         benchmarks = [
@@ -292,8 +287,8 @@ class TestEvaluationModels:
                     "num_fewshot": 0,
                     "limit": 1000,
                     "batch_size": 16,
-                    "include_path": "./custom_prompts/arc_easy.yaml"
-                }
+                    "include_path": "./custom_prompts/arc_easy.yaml",
+                },
             ),
             BenchmarkConfig(
                 benchmark_id="mmlu",
@@ -304,9 +299,9 @@ class TestEvaluationModels:
                     "batch_size": 16,
                     "include_path": "./custom_prompts/mmlu_cot.yaml",
                     "fewshot_as_multiturn": False,
-                    "trust_remote_code": False
-                }
-            )
+                    "trust_remote_code": False,
+                },
+            ),
         ]
 
         request = SimpleEvaluationRequest(
@@ -316,8 +311,8 @@ class TestEvaluationModels:
             tags={
                 "environment": "production",
                 "model_family": "llama-3.1",
-                "evaluation_type": "reasoning"
-            }
+                "evaluation_type": "reasoning",
+            },
         )
 
         assert request.model.url == "http://test-server:8000"
@@ -337,10 +332,7 @@ class TestEvaluationModels:
         model = Model(url="http://test-server:8000", name="test-model")
         benchmarks = [BenchmarkConfig(benchmark_id="test", provider_id="test_provider")]
 
-        request = SimpleEvaluationRequest(
-            model=model,
-            benchmarks=benchmarks
-        )
+        request = SimpleEvaluationRequest(model=model, benchmarks=benchmarks)
 
         assert request.experiment_name is None
         assert request.tags == {}

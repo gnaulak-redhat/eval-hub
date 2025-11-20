@@ -78,7 +78,7 @@ class BenchmarkConfig(BaseModel):
     provider_id: str = Field(..., description="Provider identifier")
     config: dict[str, Any] = Field(
         default_factory=dict,
-        description="Benchmark configuration including num_fewshot, limit, batch_size, etc."
+        description="Benchmark configuration including num_fewshot, limit, batch_size, etc.",
     )
 
 
@@ -223,9 +223,7 @@ class SimpleEvaluationRequest(BaseModel):
     retry_attempts: int = Field(
         default=3, description="Number of retry attempts on failure"
     )
-    request_id: UUID = Field(
-        default_factory=uuid4, description="Unique request ID"
-    )
+    request_id: UUID = Field(default_factory=uuid4, description="Unique request ID")
     async_mode: bool = Field(
         default=True, description="Whether to run evaluations asynchronously"
     )

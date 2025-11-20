@@ -358,8 +358,6 @@ async def create_evaluation(
                 )
 
         # Convert SimpleEvaluationRequest to legacy EvaluationRequest format for processing
-        evaluation_specs = []
-
         # Group benchmarks by provider to create backend specs
         provider_benchmarks: dict[str, list[BenchmarkConfig]] = {}
         for benchmark in request.benchmarks:
@@ -379,7 +377,10 @@ async def create_evaluation(
                 )
 
             # Map provider type to backend type
-            if provider.provider_type.value == "builtin" and provider_id == "lm_evaluation_harness":
+            if (
+                provider.provider_type.value == "builtin"
+                and provider_id == "lm_evaluation_harness"
+            ):
                 backend_type = BackendType.LMEVAL
             elif provider.provider_type.value == "nemo-evaluator":
                 backend_type = BackendType.NEMO_EVALUATOR
@@ -422,6 +423,8 @@ async def create_evaluation(
             description=f"Evaluation with {len(request.benchmarks)} benchmarks",
             model=request.model,
             backends=backend_specs,
+            risk_category=None,
+            collection_id=None,
             timeout_minutes=request.timeout_minutes,
             retry_attempts=request.retry_attempts,
         )
