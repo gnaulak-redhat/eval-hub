@@ -198,7 +198,7 @@ class NemoEvaluatorExecutor(Executor):
         # Build API endpoint configuration
         # Use model server base URL if available, otherwise fall back to config or default
         model_endpoint = (
-            context.model_server_base_url
+            context.model_url
             or self.backend_config.get("model_endpoint")
             or "http://localhost:8000"
         )

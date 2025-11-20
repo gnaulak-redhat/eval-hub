@@ -7,22 +7,11 @@ from .evaluation import (
     EvaluationResponse,
     EvaluationResult,
     EvaluationSpec,
+    Model,
     RiskCategory,
+    SingleBenchmarkEvaluationRequest,
 )
 from .health import HealthResponse
-from .model import (
-    ListModelsResponse,
-    Model,
-    ModelCapabilities,
-    ModelConfig,
-    ModelRegistrationRequest,
-    ModelsData,
-    ModelStatus,
-    ModelSummary,
-    ModelType,
-    ModelUpdateRequest,
-    RuntimeModelConfig,
-)
 from .status import EvaluationStatus, TaskStatus
 
 __all__ = [
@@ -31,20 +20,11 @@ __all__ = [
     "EvaluationSpec",
     "EvaluationResult",
     "BackendSpec",
-    "RiskCategory",
     "BenchmarkSpec",
     "HealthResponse",
-    "Model",
-    "ModelType",
-    "ModelStatus",
-    "ModelCapabilities",
-    "ModelConfig",
-    "ModelSummary",
-    "ModelRegistrationRequest",
-    "ModelUpdateRequest",
-    "ListModelsResponse",
-    "RuntimeModelConfig",
-    "ModelsData",
     "EvaluationStatus",
+    "Model",
+    "RiskCategory",
+    "SingleBenchmarkEvaluationRequest",
     "TaskStatus",
 ]

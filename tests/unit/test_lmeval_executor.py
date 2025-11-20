@@ -48,14 +48,13 @@ def execution_context():
     )
     return ExecutionContext(
         evaluation_id=evaluation_id,
-        model_server_id="test-server",
+        model_url="http://test-server:8000",
         model_name="tinyllama",
         backend_spec=backend_spec,
         benchmark_spec=benchmark_spec,
         timeout_minutes=60,
         retry_attempts=3,
         started_at=datetime.utcnow(),
-        model_server_base_url=None,
     )
 
 
@@ -68,7 +67,7 @@ class TestLMEvalExecutorBaseUrl:
     ):
         """Test that base_url from context is correctly added with /v1/completions suffix."""
         # Set base_url in context
-        execution_context.model_server_base_url = "http://model-server:8000"
+        execution_context.model_url = "http://model-server:8000"
 
         # Build the CR
         cr = lmeval_executor._build_lmeval_job_cr(
@@ -90,7 +89,7 @@ class TestLMEvalExecutorBaseUrl:
     ):
         """Test that /v1/completions suffix is added if not present."""
         # Set base_url without /v1/completions
-        execution_context.model_server_base_url = "http://model-server:8000"
+        execution_context.model_url = "http://model-server:8000"
 
         cr = lmeval_executor._build_lmeval_job_cr(
             execution_context, ["arc_easy"], "tinyllama"
@@ -109,9 +108,7 @@ class TestLMEvalExecutorBaseUrl:
     ):
         """Test that base_url with existing /v1/completions suffix is not duplicated."""
         # Set base_url with /v1/completions already present
-        execution_context.model_server_base_url = (
-            "http://model-server:8000/v1/completions"
-        )
+        execution_context.model_url = "http://model-server:8000/v1/completions"
 
         cr = lmeval_executor._build_lmeval_job_cr(
             execution_context, ["arc_easy"], "tinyllama"
@@ -132,7 +129,7 @@ class TestLMEvalExecutorBaseUrl:
     ):
         """Test that trailing slashes are handled correctly."""
         # Set base_url with trailing slash
-        execution_context.model_server_base_url = "http://model-server:8000/"
+        execution_context.model_url = "http://model-server:8000/"
 
         cr = lmeval_executor._build_lmeval_job_cr(
             execution_context, ["arc_easy"], "tinyllama"
@@ -153,7 +150,7 @@ class TestLMEvalExecutorBaseUrl:
         """Test that base_url from backend config is used as fallback."""
         # Set base_url in backend config but not in context
         backend_config["base_url"] = "http://config-server:9000"
-        execution_context.model_server_base_url = None
+        execution_context.model_url = None
 
         with (
             patch("eval_hub.executors.lmeval.config.load_incluster_config"),
@@ -176,7 +173,7 @@ class TestLMEvalExecutorBaseUrl:
     ):
         """Test that context base_url takes priority over backend config."""
         # Set both context and config base_url
-        execution_context.model_server_base_url = "http://context-server:8000"
+        execution_context.model_url = "http://context-server:8000"
         backend_config["base_url"] = "http://config-server:9000"
 
         with (
@@ -200,7 +197,7 @@ class TestLMEvalExecutorBaseUrl:
     def test_base_url_empty_handling(self, lmeval_executor, execution_context):
         """Test that empty base_url is handled correctly."""
         # No base_url in context or config
-        execution_context.model_server_base_url = None
+        execution_context.model_url = None
 
         cr = lmeval_executor._build_lmeval_job_cr(
             execution_context, ["arc_easy"], "tinyllama"
@@ -218,7 +215,7 @@ class TestLMEvalExecutorBaseUrl:
 
     def test_base_url_in_model_args_list(self, lmeval_executor, execution_context):
         """Test that base_url is correctly included in the modelArgs list."""
-        execution_context.model_server_base_url = "http://model-server:8000"
+        execution_context.model_url = "http://model-server:8000"
 
         cr = lmeval_executor._build_lmeval_job_cr(
             execution_context, ["arc_easy"], "tinyllama"
@@ -240,7 +237,7 @@ class TestLMEvalExecutorBaseUrl:
 
     def test_base_url_with_https(self, lmeval_executor, execution_context):
         """Test that HTTPS URLs are handled correctly."""
-        execution_context.model_server_base_url = "https://secure-server:8443"
+        execution_context.model_url = "https://secure-server:8443"
 
         cr = lmeval_executor._build_lmeval_job_cr(
             execution_context, ["arc_easy"], "tinyllama"

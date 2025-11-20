@@ -90,7 +90,7 @@ class TestRequestParser:
         )
         eval_spec = EvaluationSpec(
             name="Test Evaluation",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -108,7 +108,7 @@ class TestRequestParser:
         """Test parsing a request with risk category."""
         eval_spec = EvaluationSpec(
             name="Risk Category Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.MEDIUM,
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -143,7 +143,7 @@ class TestRequestParser:
         """Test parsing a request with low risk category."""
         eval_spec = EvaluationSpec(
             name="Low Risk Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.LOW,
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -165,7 +165,7 @@ class TestRequestParser:
         """Test parsing a request with critical risk category."""
         eval_spec = EvaluationSpec(
             name="Critical Risk Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.CRITICAL,
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -206,7 +206,7 @@ class TestRequestParser:
         for i in range(101):  # More than the limit of 100
             eval_spec = EvaluationSpec(
                 name=f"Test {i}",
-                model={"server": "test-server", "name": "test-model"},
+                model={"url": "http://test-server:8000", "name": "test-model"},
                 risk_category=RiskCategory.LOW,
             )
             evaluations.append(eval_spec)
@@ -223,7 +223,7 @@ class TestRequestParser:
         """Test validation fails for missing model name."""
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": ""},  # Empty model name
+            model={"url": "http://test-server:8000", "name": ""},  # Empty model name
             risk_category=RiskCategory.LOW,
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -238,7 +238,7 @@ class TestRequestParser:
         """Test validation fails when neither backends nor risk category specified."""
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             # No backends or risk_category
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -253,7 +253,7 @@ class TestRequestParser:
         """Test validation fails for negative timeout."""
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.LOW,
             timeout_minutes=-1,
         )
@@ -269,7 +269,7 @@ class TestRequestParser:
         """Test validation fails for negative retry attempts."""
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.LOW,
             retry_attempts=-1,
         )
@@ -291,7 +291,7 @@ class TestRequestParser:
         )
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -311,7 +311,7 @@ class TestRequestParser:
         )
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -332,7 +332,7 @@ class TestRequestParser:
         )
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -368,7 +368,7 @@ class TestRequestParser:
 
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend1, backend2],
         )
         request = EvaluationRequest(evaluations=[eval_spec])
@@ -384,7 +384,7 @@ class TestRequestParser:
         )
         eval_spec = EvaluationSpec(
             name="Test",
-            model={"server": "test-server", "name": "test-model"},
+            model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
         request = EvaluationRequest(evaluations=[eval_spec])

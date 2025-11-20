@@ -293,13 +293,13 @@ class LMEvalExecutor(Executor):
         # Get base_url from context or config and always add it
         if not any(arg["name"] == "base_url" for arg in model_args_list):
             # Try to get base_url from context first (from model server)
-            base_url = context.model_server_base_url
+            base_url = context.model_url
             self.logger.info(
                 "Retrieving base_url for CR",
                 evaluation_id=str(context.evaluation_id),
-                model_server_id=context.model_server_id,
+                model_server_id=context.model_url,
                 model_name=context.model_name,
-                context_base_url=context.model_server_base_url,
+                context_base_url=context.model_url,
             )
 
             if not base_url:
@@ -328,9 +328,9 @@ class LMEvalExecutor(Executor):
                 self.logger.warning(
                     "No base_url found in context or config, base_url will be empty in CR",
                     evaluation_id=str(context.evaluation_id),
-                    model_server_id=context.model_server_id,
+                    model_server_id=context.model_url,
                     model_name=context.model_name,
-                    model_server_base_url=context.model_server_base_url,
+                    model_server_base_url=context.model_url,
                     backend_config_base_url=self.backend_config.get("base_url"),
                 )
                 # Use empty string as fallback (operator may set it)

@@ -490,6 +490,7 @@ test = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "requests" },
 ]
 
 [package.metadata]
@@ -516,6 +517,7 @@ requires-dist = [
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.12.0" },
     { name = "pytest-mock", marker = "extra == 'test'", specifier = ">=3.12.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
+    { name = "requests", marker = "extra == 'test'", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.6" },
     { name = "structlog", specifier = ">=23.2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.24.0" },

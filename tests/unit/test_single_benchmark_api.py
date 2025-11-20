@@ -147,7 +147,7 @@ class TestSingleBenchmarkEvaluation:
         client, mock_service = client_with_mock_provider
 
         request_data = {
-            "model": {"server": "vllm", "name": "gpt-4o-mini"},
+            "model": {"url": "http://vllm-server:8000", "name": "gpt-4o-mini"},
             "model_configuration": {"temperature": 0.0, "max_tokens": 512},
             "timeout_minutes": 30,
             "retry_attempts": 1,
@@ -179,7 +179,7 @@ class TestSingleBenchmarkEvaluation:
         client, _ = client_with_mock_provider
 
         request_data = {
-            "model": {"server": "vllm", "name": "gpt-4o-mini"},
+            "model": {"url": "http://vllm-server:8000", "name": "gpt-4o-mini"},
             "model_configuration": {},
         }
 
@@ -201,7 +201,7 @@ class TestSingleBenchmarkEvaluation:
         mock_service.get_benchmark_by_id.return_value = None
 
         request_data = {
-            "model": {"server": "vllm", "name": "gpt-4o-mini"},
+            "model": {"url": "http://vllm-server:8000", "name": "gpt-4o-mini"},
             "model_configuration": {},
         }
 
@@ -223,7 +223,7 @@ class TestSingleBenchmarkEvaluation:
         mock_service.get_provider_by_id.return_value = None
 
         request_data = {
-            "model": {"server": "vllm", "name": "gpt-4o-mini"},
+            "model": {"url": "http://vllm-server:8000", "name": "gpt-4o-mini"},
             "model_configuration": {},
         }
 
@@ -243,7 +243,7 @@ class TestSingleBenchmarkEvaluation:
         client, _ = client_with_mock_provider
 
         request_data = {
-            "model": {"server": "vllm", "name": "gpt-4o-mini"},
+            "model": {"url": "http://vllm-server:8000", "name": "gpt-4o-mini"},
             "model_configuration": {
                 "temperature": 0.1,
                 "max_tokens": 256,
@@ -316,7 +316,7 @@ class TestSingleBenchmarkEvaluation:
         mock_service.get_provider_by_id.return_value = nemo_provider
 
         request_data = {
-            "model": {"server": "vllm", "name": "test-model"},
+            "model": {"url": "http://vllm-server:8000", "name": "test-model"},
             "model_configuration": {},
         }
 

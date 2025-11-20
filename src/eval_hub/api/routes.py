@@ -31,16 +31,6 @@ from ..models.evaluation import (
     SingleBenchmarkEvaluationRequest,
 )
 from ..models.health import HealthResponse
-from ..models.model import (
-    ListModelServersResponse,
-    ListModelsResponse,
-    Model,
-    ModelRegistrationRequest,
-    ModelServer,
-    ModelServerRegistrationRequest,
-    ModelServerUpdateRequest,
-    ModelUpdateRequest,
-)
 from ..models.provider import (
     BenchmarkDetail,
     Collection,
@@ -54,7 +44,6 @@ from ..models.provider import (
 )
 from ..services.executor import EvaluationExecutor
 from ..services.mlflow_client import MLFlowClient
-from ..services.model_service import ModelService
 from ..services.parser import RequestParser
 from ..services.provider_service import ProviderService
 from ..services.response_builder import ResponseBuilder
@@ -73,17 +62,11 @@ def get_request_parser(settings: Settings = Depends(get_settings)) -> RequestPar
     return RequestParser(settings)
 
 
-def get_model_service(settings: Settings = Depends(get_settings)) -> ModelService:
-    """Dependency to get model service."""
-    return ModelService(settings)
-
-
 def get_evaluation_executor(
     settings: Settings = Depends(get_settings),
-    model_service: ModelService = Depends(get_model_service),
 ) -> EvaluationExecutor:
     """Dependency to get evaluation executor."""
-    return EvaluationExecutor(settings, model_service=model_service)
+    return EvaluationExecutor(settings)
 
 
 def get_mlflow_client(settings: Settings = Depends(get_settings)) -> MLFlowClient:
@@ -212,11 +195,8 @@ async def create_single_benchmark_evaluation(
         evaluations=[
             EvaluationSpec(
                 name=f"{benchmark.name} Evaluation",
-                description=f"Evaluation of {request.model['server']}::{request.model['name']} on {benchmark.name}",
-                model={
-                    **request.model,
-                    "configuration": request.model_configuration,
-                },
+                description=f"Evaluation of {request.model.url}::{request.model.name} on {benchmark.name}",
+                model=request.model,
                 backends=[
                     BackendSpec(
                         name=f"{provider_id}-backend",
@@ -249,7 +229,7 @@ async def create_single_benchmark_evaluation(
         "Received single benchmark evaluation request",
         provider_id=provider_id,
         benchmark_id=benchmark_id,
-        model_server_id=request.model_server_id,
+        model_url=request.model_url,
         model_name=request.model_name,
     )
 
@@ -866,298 +846,6 @@ async def delete_collection(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete collection: {str(e)}",
-        ) from e
-
-
-# Model Server Management Endpoints
-
-
-@router.get("/servers", response_model=ListModelServersResponse)
-async def list_servers(
-    include_inactive: bool = Query(True, description="Include inactive servers"),
-    model_service: ModelService = Depends(get_model_service),
-) -> ListModelServersResponse:
-    """List all registered and runtime model servers."""
-    logger.info("Listing all model servers", include_inactive=include_inactive)
-    return model_service.get_all_servers(include_inactive=include_inactive)
-
-
-@router.get("/servers/{server_id}", response_model=ModelServer)
-async def get_server(
-    server_id: str,
-    model_service: ModelService = Depends(get_model_service),
-) -> ModelServer:
-    """Get details of a specific model server."""
-    server = model_service.get_server_by_id(server_id)
-    if not server:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model server {server_id} not found",
-        )
-
-    logger.info("Retrieved server details", server_id=server_id)
-    return server
-
-
-@router.post(
-    "/servers", response_model=ModelServer, status_code=status.HTTP_201_CREATED
-)
-async def register_server(
-    request: ModelServerRegistrationRequest,
-    model_service: ModelService = Depends(get_model_service),
-) -> ModelServer:
-    """Register a new model server."""
-    try:
-        server = model_service.register_server(request)
-        logger.info(
-            "Model server registered successfully",
-            server_id=request.server_id,
-        )
-        return server
-    except ValueError as e:
-        logger.error(
-            "Failed to register server",
-            server_id=request.server_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(
-            "Unexpected error registering server",
-            server_id=request.server_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register server: {str(e)}",
-        ) from e
-
-
-@router.put("/servers/{server_id}", response_model=ModelServer)
-async def update_server(
-    server_id: str,
-    request: ModelServerUpdateRequest,
-    model_service: ModelService = Depends(get_model_service),
-) -> ModelServer:
-    """Update an existing registered model server."""
-    try:
-        server = model_service.update_server(server_id, request)
-        if not server:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Model server {server_id} not found",
-            )
-
-        logger.info("Model server updated successfully", server_id=server_id)
-        return server
-    except ValueError as e:
-        logger.error(
-            "Failed to update server",
-            server_id=server_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(
-            "Unexpected error updating server",
-            server_id=server_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update server: {str(e)}",
-        ) from e
-
-
-@router.delete("/servers/{server_id}")
-async def delete_server(
-    server_id: str,
-    model_service: ModelService = Depends(get_model_service),
-) -> JSONResponse:
-    """Delete a registered model server."""
-    try:
-        success = model_service.delete_server(server_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Model server {server_id} not found",
-            )
-
-        logger.info("Model server deleted successfully", server_id=server_id)
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"message": f"Model server {server_id} deleted successfully"},
-        )
-    except ValueError as e:
-        logger.error(
-            "Failed to delete server",
-            server_id=server_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(
-            "Unexpected error deleting server",
-            server_id=server_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete server: {str(e)}",
-        ) from e
-
-
-# Model Management Endpoints
-
-
-@router.get("/models", response_model=ListModelsResponse)
-async def list_models(
-    include_inactive: bool = Query(True, description="Include inactive models"),
-    model_service: ModelService = Depends(get_model_service),
-) -> ListModelsResponse:
-    """List all models across all servers."""
-    logger.info("Listing all models", include_inactive=include_inactive)
-    return model_service.get_all_models(include_inactive=include_inactive)
-
-
-@router.get("/models/{model_id}", response_model=Model)
-async def get_model(
-    model_id: str,
-    model_service: ModelService = Depends(get_model_service),
-) -> Model:
-    """Get a model by ID."""
-    model = model_service.get_model_by_id(model_id)
-    if not model:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model {model_id} not found",
-        )
-
-    logger.info("Retrieved model details", model_id=model_id)
-    return model
-
-
-@router.post("/models", response_model=Model, status_code=status.HTTP_201_CREATED)
-async def register_model(
-    request: ModelRegistrationRequest,
-    model_service: ModelService = Depends(get_model_service),
-) -> Model:
-    """Register a new model."""
-    try:
-        model = model_service.register_model(request)
-        logger.info(
-            "Model registered successfully",
-            model_id=request.model_id,
-        )
-        return model
-    except ValueError as e:
-        logger.error(
-            "Failed to register model",
-            model_id=request.model_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(
-            "Unexpected error registering model",
-            model_id=request.model_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register model: {str(e)}",
-        ) from e
-
-
-@router.put("/models/{model_id}", response_model=Model)
-async def update_model(
-    model_id: str,
-    request: ModelUpdateRequest,
-    model_service: ModelService = Depends(get_model_service),
-) -> Model:
-    """Update an existing model."""
-    try:
-        model = model_service.update_model(model_id, request)
-        if not model:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Model {model_id} not found",
-            )
-
-        logger.info("Model updated successfully", model_id=model_id)
-        return model
-    except ValueError as e:
-        logger.error(
-            "Failed to update model",
-            model_id=model_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(
-            "Unexpected error updating model",
-            model_id=model_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update model: {str(e)}",
-        ) from e
-
-
-@router.delete("/models/{model_id}")
-async def delete_model(
-    model_id: str,
-    model_service: ModelService = Depends(get_model_service),
-) -> JSONResponse:
-    """Delete a model."""
-    try:
-        success = model_service.delete_model(model_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Model {model_id} not found",
-            )
-
-        logger.info("Model deleted successfully", model_id=model_id)
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"message": f"Model {model_id} deleted successfully"},
-        )
-    except ValueError as e:
-        logger.error(
-            "Failed to delete model",
-            model_id=model_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except Exception as e:
-        logger.error(
-            "Unexpected error deleting model",
-            model_id=model_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete model: {str(e)}",
         ) from e
 
 

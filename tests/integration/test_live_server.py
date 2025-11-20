@@ -19,17 +19,6 @@ class TestLiveServer:
         assert "version" in data
         assert "uptime_seconds" in data
 
-    def test_list_servers_live(self, live_server):
-        """Test listing servers with live server."""
-        response = requests.get(f"{live_server}/api/v1/servers")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "servers" in data
-        assert "total_servers" in data
-        assert isinstance(data["servers"], list)
-
     def test_list_providers_live(self, live_server):
         """Test listing providers with live server."""
         response = requests.get(f"{live_server}/api/v1/evaluations/providers")

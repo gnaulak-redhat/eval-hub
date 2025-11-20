@@ -66,7 +66,7 @@ class MLFlowClient:
         benchmark_name: str,
     ) -> str:
         """Start an MLFlow run for a specific evaluation (mocked)."""
-        run_name = f"{evaluation.model_server_id}::{evaluation.model_name}_{backend_name}_{benchmark_name}"
+        run_name = f"{evaluation.model_url}::{evaluation.model_name}_{backend_name}_{benchmark_name}"
 
         # Create mock run
         run_id = f"run_{uuid4().hex[:8]}"
@@ -74,7 +74,7 @@ class MLFlowClient:
             "experiment_id": experiment_id,
             "run_name": run_name,
             "evaluation_id": str(evaluation.id),
-            "model_server_id": evaluation.model_server_id,
+            "model_server_id": evaluation.model_url,
             "model_name": evaluation.model_name,
             "backend_name": backend_name,
             "benchmark_name": benchmark_name,
@@ -199,10 +199,7 @@ class MLFlowClient:
             # Generate name based on timestamp and request content
             timestamp = request.created_at.strftime("%Y%m%d_%H%M%S")
             model_identifiers = list(
-                {
-                    f"{eval.model_server_id}::{eval.model_name}"
-                    for eval in request.evaluations
-                }
+                {f"{eval.model_url}::{eval.model_name}" for eval in request.evaluations}
             )
             if len(model_identifiers) == 1:
                 base_name = f"{model_identifiers[0]}_{timestamp}"

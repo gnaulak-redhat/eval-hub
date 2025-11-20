@@ -57,7 +57,7 @@ class TestAPIEndpoints:
             "evaluations": [
                 {
                     "name": "Test Evaluation",
-                    "model": {"server": "test-server", "name": "test-model"},
+                    "model": {"url": "http://test-server:8000", "name": "test-model"},
                     "risk_category": "low",
                 }
             ]
@@ -87,7 +87,7 @@ class TestAPIEndpoints:
             "evaluations": [
                 {
                     "name": "Explicit Backend Test",
-                    "model": {"server": "test-server", "name": "test-model"},
+                    "model": {"url": "http://test-server:8000", "name": "test-model"},
                     "backends": [
                         {
                             "name": "lm-evaluation-harness",
@@ -129,7 +129,7 @@ class TestAPIEndpoints:
                 {
                     "name": "Invalid Test",
                     "model": {
-                        "server": "test-server",
+                        "url": "http://test-server:8000",
                         "name": "",
                     },  # Empty model name should fail validation
                     "risk_category": "low",
@@ -242,7 +242,7 @@ class TestAPIEndpoints:
             "evaluations": [
                 {
                     "name": "Sync Test",
-                    "model": {"server": "test-server", "name": "test-model"},
+                    "model": {"url": "http://test-server:8000", "name": "test-model"},
                     "risk_category": "low",
                 }
             ]

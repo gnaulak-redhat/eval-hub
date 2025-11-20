@@ -20,17 +20,15 @@ from ..models.evaluation import (
     EvaluationStatus,
 )
 from ..models.status import TaskInfo, TaskStatus
-from ..services.model_service import ModelService
 from ..utils import safe_duration_seconds, utcnow
 
 
 class EvaluationExecutor:
     """Service for executing and monitoring evaluations."""
 
-    def __init__(self, settings: Settings, model_service: ModelService | None = None):
+    def __init__(self, settings: Settings):
         self.settings = settings
         self.logger = get_logger(__name__)
-        self.model_service = model_service
         self.active_tasks: dict[str, TaskInfo] = {}
         self.execution_semaphore = asyncio.Semaphore(
             settings.max_concurrent_evaluations
@@ -304,54 +302,22 @@ class EvaluationExecutor:
     ) -> EvaluationResult:
         """Execute a single benchmark on a specific backend."""
         async with self.execution_semaphore:
-            # Resolve model server and model - fail if server not found
-            if not evaluation.model_server_id:
+            # Get model URL directly from evaluation
+            if not evaluation.model_url:
                 raise BackendError(
-                    f"Model server ID is required but not provided for evaluation {evaluation.id}"
+                    f"Model URL is required but not provided for evaluation {evaluation.id}"
                 )
 
-            if not self.model_service:
-                raise BackendError(
-                    f"Model service is not available, cannot resolve server for evaluation {evaluation.id}"
-                )
-
-            model_server_base_url: str | None = None
-            server_model = self.model_service.get_model_on_server(
-                evaluation.model_server_id, evaluation.model_name
+            self.logger.info(
+                "Using model URL for evaluation",
+                model_url=evaluation.model_url,
+                model_name=evaluation.model_name,
             )
-            if server_model:
-                server, _ = server_model
-                model_server_base_url = server.base_url
-                self.logger.info(
-                    "Found model server and model, using base_url",
-                    server_id=evaluation.model_server_id,
-                    model_name=evaluation.model_name,
-                    base_url=model_server_base_url,
-                )
-            else:
-                # Try to get server even if model not found
-                server_result = self.model_service.get_server_by_id(
-                    evaluation.model_server_id
-                )
-                if server_result:
-                    model_server_base_url = server_result.base_url
-                    self.logger.warning(
-                        "Model not found on server, but using server base_url",
-                        server_id=evaluation.model_server_id,
-                        model_name=evaluation.model_name,
-                        base_url=model_server_base_url,
-                    )
-                else:
-                    raise BackendError(
-                        f"Model server '{evaluation.model_server_id}' not found. "
-                        f"Cannot proceed without base_url for evaluation {evaluation.id}"
-                    )
 
             context = ExecutionContext(
                 evaluation_id=evaluation.id,
-                model_server_id=evaluation.model_server_id,
+                model_url=evaluation.model_url,
                 model_name=evaluation.model_name,
-                model_server_base_url=model_server_base_url,
                 backend_spec=backend,
                 benchmark_spec=benchmark,
                 timeout_minutes=evaluation.timeout_minutes,

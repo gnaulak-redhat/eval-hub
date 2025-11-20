@@ -5,7 +5,19 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class Model(BaseModel):
+    """Model specification for evaluation requests."""
+
+    model_config = ConfigDict(extra="allow")
+
+    url: str = Field(..., description="Model endpoint URL")
+    name: str = Field(..., description="Model name/identifier")
+    configuration: dict[str, Any] = Field(
+        default_factory=dict, description="Model-specific configuration parameters"
+    )
 
 
 def get_utc_now() -> datetime:
@@ -81,10 +93,7 @@ class EvaluationSpec(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="Unique evaluation ID")
     name: str = Field(..., description="Human-readable evaluation name")
     description: str | None = Field(None, description="Evaluation description")
-    model: dict[str, Any] = Field(
-        ...,
-        description="Model specification with 'server', 'name', and optional 'configuration' fields",
-    )
+    model: Model = Field(..., description="Model specification for evaluation")
     backends: list[BackendSpec] = Field(
         default_factory=list, description="Backends to run evaluations on"
     )
@@ -108,29 +117,19 @@ class EvaluationSpec(BaseModel):
     )
 
     @property
-    def model_server_id(self) -> str:
-        """Get model server ID from nested model object."""
-        return str(self.model.get("server", ""))
+    def model_url(self) -> str:
+        """Get model URL from model object."""
+        return self.model.url
 
     @property
     def model_name(self) -> str:
-        """Get model name from nested model object."""
-        return str(self.model.get("name", ""))
+        """Get model name from model object."""
+        return self.model.name
 
     @property
     def model_configuration(self) -> dict[str, Any]:
-        """Get model configuration from nested model object."""
-        config = self.model.get("configuration", {})
-        return dict(config) if isinstance(config, dict) else {}
-
-    @model_validator(mode="after")
-    def validate_model_fields(self) -> "EvaluationSpec":
-        """Validate that model object contains required 'server' and 'name' fields."""
-        if "server" not in self.model:
-            raise ValueError("model.server is required")
-        if "name" not in self.model:
-            raise ValueError("model.name is required")
-        return self
+        """Get model configuration from model object."""
+        return self.model.configuration
 
 
 class SingleBenchmarkEvaluationRequest(BaseModel):
@@ -138,12 +137,7 @@ class SingleBenchmarkEvaluationRequest(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    model: dict[str, Any] = Field(
-        ..., description="Model specification with 'server' and 'name' fields"
-    )
-    model_configuration: dict[str, Any] = Field(
-        default_factory=dict, description="Model configuration"
-    )
+    model: Model = Field(..., description="Model specification for evaluation")
     timeout_minutes: int = Field(default=60, description="Timeout for the evaluation")
     retry_attempts: int = Field(
         default=3, description="Number of retry attempts on failure"
@@ -156,23 +150,19 @@ class SingleBenchmarkEvaluationRequest(BaseModel):
     )
 
     @property
-    def model_server_id(self) -> str:
-        """Get model server ID from nested model object."""
-        return str(self.model.get("server", ""))
+    def model_url(self) -> str:
+        """Get model URL from model object."""
+        return self.model.url
 
     @property
     def model_name(self) -> str:
-        """Get model name from nested model object."""
-        return str(self.model.get("name", ""))
+        """Get model name from model object."""
+        return self.model.name
 
-    @model_validator(mode="after")
-    def validate_model_fields(self) -> "SingleBenchmarkEvaluationRequest":
-        """Validate that model object contains required 'server' and 'name' fields."""
-        if "server" not in self.model:
-            raise ValueError("model.server is required")
-        if "name" not in self.model:
-            raise ValueError("model.name is required")
-        return self
+    @property
+    def model_configuration(self) -> dict[str, Any]:
+        """Get model configuration from model object."""
+        return self.model.configuration
 
 
 class EvaluationRequest(BaseModel):

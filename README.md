@@ -21,7 +21,6 @@ The Evaluation Hub is designed to:
 - **Multi-Backend Support**: Orchestrates evaluations across different backends (lm-evaluation-harness, GuideLL, NeMo Evaluator, custom backends)
 - **Collection Management**: Create, manage, and execute curated collections of benchmarks with weighted scoring and automated provider task aggregation
 - **Native Collection Support**: Use `collection_id` directly in evaluation requests for automatic benchmark expansion and execution
-- **Model Management**: Register and manage language models through API and environment variables
 - **Provider & Benchmark Discovery**: Comprehensive API for discovering evaluation providers and their available benchmarks
 - **Remote Container Integration**: NeMo Evaluator Executor for connecting to remote @Evaluator containers
 - **Risk Category Automation**: Automatically generates appropriate benchmarks based on risk categories (low, medium, high, critical)
@@ -137,7 +136,6 @@ Key API capabilities:
 - **Evaluation Management**: Create, monitor, and manage evaluation jobs
 - **Provider Integration**: Support for LM-Evaluation-Harness, RAGAS, Garak, and custom providers
 - **Collection Management**: Curated benchmark collections for domain-specific evaluation
-- **Model Management**: Register and manage language models across different inference servers
 - **Real-time Monitoring**: Health checks, metrics, and system status endpoints
 
 ## Collection Management
@@ -226,66 +224,6 @@ flowchart TD
 - **Parallel Execution**: Different provider groups can execute in parallel
 - **Result Aggregation**: Final scoring uses preserved weights for accurate collection-level metrics
 
-## Model Management
-
-The Evaluation Hub includes a comprehensive model management system for registering and managing language models. Models can be registered through the REST API or configured at runtime via environment variables.
-
-**Supported Model Types**:
-- `openai` - OpenAI models
-- `anthropic` - Anthropic Claude models
-- `huggingface` - Hugging Face models
-- `ollama` - Ollama local models
-- `vllm` - vLLM inference server
-- `openai-compatible` - OpenAI-compatible APIs
-- `custom` - Custom model implementations
-
-### Runtime Model Configuration
-
-Models can be configured at runtime using environment variables following the pattern `EVAL_HUB_MODEL_<MODEL_ID>_URL` for the model endpoint, with optional name, type, and path configuration. This is useful for deployment environments where you want to configure models without API calls.
-
-Models registered through the model management system can be referenced by their `model_id` in evaluation requests.
-
-### Model Management Best Practices
-
-1. **Naming Convention**: Use consistent, descriptive model IDs (e.g., `gpt-4-turbo`, `claude-3-sonnet`)
-
-2. **Environment Variables**: Use runtime configuration for:
-   - Production deployments
-   - CI/CD environments
-   - Models with sensitive configuration
-
-3. **API Registration**: Use API registration for:
-   - Development environments
-   - Dynamic model management
-   - Models requiring frequent updates
-
-4. **Security**:
-   - Always set `api_key_required: true` for external APIs
-   - Use environment variables for API keys, never hardcode them
-   - Use HTTPS URLs for `base_url` in production
-
-5. **Capabilities Tracking**: Accurately configure model capabilities to enable proper evaluation routing
-
-6. **Status Management**: Use model status to control availability without deleting model configurations
-
-### Model Validation
-
-The system validates:
-- **Model ID**: Must contain only letters, numbers, dots, hyphens, and underscores
-- **Base URL**: Must be a valid HTTP or HTTPS URL
-- **Model Type**: Must be one of the supported types
-- **Configuration Ranges**: Temperature (0.0-2.0), top_p (0.0-1.0), penalties (-2.0-2.0)
-
-### Troubleshooting Models
-
-**Common Issues**:
-
-1. **Model Not Found**: Check model ID spelling and ensure model is active
-2. **API Connection Errors**: Verify base_url is accessible and API key is valid
-3. **Validation Errors**: Check model_id format and configuration parameter ranges
-4. **Runtime Model Issues**: Verify environment variable naming and restart service if needed
-
-Use the model management API endpoints to debug model issues.
 
 ## Configuration
 

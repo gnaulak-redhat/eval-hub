@@ -16,7 +16,7 @@ class ExecutionContext:
     def __init__(
         self,
         evaluation_id: UUID,
-        model_server_id: str,
+        model_url: str,
         model_name: str,
         backend_spec: BackendSpec,
         benchmark_spec: BenchmarkSpec,
@@ -24,12 +24,10 @@ class ExecutionContext:
         retry_attempts: int,
         started_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
-        model_server_base_url: str | None = None,
     ):
         self.evaluation_id = evaluation_id
-        self.model_server_id = model_server_id
+        self.model_url = model_url
         self.model_name = model_name
-        self.model_server_base_url = model_server_base_url
         self.backend_spec = backend_spec
         self.benchmark_spec = benchmark_spec
         self.timeout_minutes = timeout_minutes
