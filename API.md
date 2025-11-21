@@ -306,35 +306,6 @@ The evaluation request uses a clean, flat structure for maximum simplicity and c
 
 **Design Rationale:** This flat structure eliminates unnecessary complexity. Since each benchmark specifies its `provider_id`, there's no need for grouping at the request level. The API handles provider optimization internally, while clients enjoy a simple "run these benchmarks on this model" interface. For organization needs, use collections for pre-curated sets or tags for custom grouping.
 
-#### **POST** `/evaluations/benchmarks/{provider_id}/{benchmark_id}` \- Single Benchmark Evaluation
-
-**Purpose**: Run evaluation on a single benchmark (Llama Stack compatible API)
-**Response Model**: `EvaluationResponse`
-**Status Code**: `202 ACCEPTED`
-
-```shell
-curl -X POST "{{baseUrl}}/evaluations/benchmarks/lm_evaluation_harness/arc_easy?async_mode=true" \
--H "Content-Type: application/json" \
--d '{
-  "model": {
-    "server": "ollama",
-    "name": "meta-llama/llama-3.1-8b"
-  },
-  "model_configuration": {
-    "temperature": 0.1,
-    "max_tokens": 512
-  },
-  "timeout_minutes": 60,
-  "retry_attempts": 3,
-  "limit": null,
-  "num_fewshot": null,
-  "experiment_name": "single-benchmark-test",
-  "tags": {
-    "environment": "testing",
-    "benchmark_type": "reasoning"
-  }
-}'
-```
 
 #### **GET** `/evaluations/jobs/{id}` \- Get Evaluation Status
 
@@ -1071,6 +1042,29 @@ curl -X GET "{{baseUrl}}/metrics/system"
 
 ## **Schema Design & Provider Parameters**
 
+### ExperimentConfig Structure
+
+The Evaluation Hub uses a structured `ExperimentConfig` object to organize MLFlow experiment tracking information. This replaces the previous scattered `experiment_name` and `tags` fields for better type safety and consistency.
+
+**ExperimentConfig Schema**:
+```json
+{
+  "experiment": {
+    "name": "string",
+    "tags": {
+      "additionalProperties": "string"
+    }
+  }
+}
+```
+
+**Benefits**:
+- **Structured Organization**: Experiment configuration is clearly grouped
+- **Type Safety**: Better OpenAPI validation and documentation
+- **Consistency**: All evaluation endpoints use the same structure
+- **MLFlow Integration**: Direct mapping to MLFlow experiment metadata
+
+
 ### Evaluation Request Structure
 
 The `/evaluations` endpoint uses a simple, consistent structure for maximum clarity:
@@ -1085,8 +1079,9 @@ EvaluationRequest
 │   ├── benchmark_id                # Direct benchmark identifier
 │   ├── provider_id                 # Provider to use (lm_evaluation_harness, ragas, garak)
 │   └── config                      # Provider-specific benchmark configuration
-├── experiment_name                 # Optional experiment name for MLFlow
-└── tags                           # Optional metadata tags
+└── experiment                     # Experiment configuration for MLFlow
+    ├── name                        # Required experiment name for MLFlow
+    └── tags                        # Optional metadata tags
 ```
 
 ### Provider-Specific Parameter Examples
@@ -1211,10 +1206,12 @@ The simplified structure provides clear configuration patterns:
       }
     }
   ],
-  "experiment_name": "comprehensive-assessment",
-  "tags": {
-    "model_version": "v2.1.0",
-    "evaluation_type": "comprehensive"
+  "experiment": {
+    "name": "comprehensive-assessment",
+    "tags": {
+      "model_version": "v2.1.0",
+      "evaluation_type": "comprehensive"
+    }
   }
 }
 ```

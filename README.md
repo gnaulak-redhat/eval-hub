@@ -138,6 +138,44 @@ Key API capabilities:
 - **Collection Management**: Curated benchmark collections for domain-specific evaluation
 - **Real-time Monitoring**: Health checks, metrics, and system status endpoints
 
+## Experiment Configuration
+
+The Evaluation Hub uses a structured `ExperimentConfig` object for MLFlow experiment tracking, replacing the previous scattered `experiment_name` and `tags` fields. This provides better organization and consistency across all evaluation requests.
+
+### ExperimentConfig Schema
+
+```json
+{
+  "experiment": {
+    "name": "string",
+    "tags": {
+      "additionalProperties": "string"
+    }
+  }
+}
+```
+
+### Usage Examples
+
+Example usage:
+```json
+{
+  "model": {...},
+  "benchmarks": [...],
+  "experiment": {
+    "name": "my-evaluation",
+    "tags": {"environment": "production", "model_family": "llama"}
+  }
+}
+```
+
+### Benefits
+
+- **Structured Organization**: Experiment configuration is clearly grouped
+- **Type Safety**: Better validation and documentation with OpenAPI schema
+- **Consistency**: All evaluation endpoints use the same experiment structure
+- **MLFlow Integration**: Direct mapping to MLFlow experiment metadata
+
 ## Collection Management
 
 The Evaluation Hub includes a comprehensive collection management system for creating, managing, and executing curated collections of benchmarks with weighted scoring and automated provider task aggregation.

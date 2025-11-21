@@ -43,6 +43,17 @@ class BackendType(str, Enum):
     CUSTOM = "custom"
 
 
+class ExperimentConfig(BaseModel):
+    """Configuration for MLFlow experiment tracking."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(..., description="Experiment name for MLFlow tracking")
+    tags: dict[str, str] = Field(
+        default_factory=dict, description="Tags for the evaluation experiment"
+    )
+
+
 class EvaluationStatus(str, Enum):
     """Status of an evaluation."""
 
@@ -145,39 +156,6 @@ class EvaluationSpec(BaseModel):
         return self.model.configuration
 
 
-class SingleBenchmarkEvaluationRequest(BaseModel):
-    """Simplified request for running a single benchmark evaluation."""
-
-    model_config = ConfigDict(extra="allow")
-
-    model: Model = Field(..., description="Model specification for evaluation")
-    timeout_minutes: int = Field(default=60, description="Timeout for the evaluation")
-    retry_attempts: int = Field(
-        default=3, description="Number of retry attempts on failure"
-    )
-    limit: int | None = Field(None, description="Limit number of samples to evaluate")
-    num_fewshot: int | None = Field(None, description="Number of few-shot examples")
-    experiment_name: str | None = Field(None, description="MLFlow experiment name")
-    tags: dict[str, str] = Field(
-        default_factory=dict, description="Tags for the evaluation run"
-    )
-
-    @property
-    def model_url(self) -> str:
-        """Get model URL from model object."""
-        return self.model.url
-
-    @property
-    def model_name(self) -> str:
-        """Get model name from model object."""
-        return self.model.name
-
-    @property
-    def model_configuration(self) -> dict[str, Any]:
-        """Get model configuration from model object."""
-        return self.model.configuration
-
-
 class EvaluationRequest(BaseModel):
     """Request payload for starting evaluations."""
 
@@ -187,9 +165,8 @@ class EvaluationRequest(BaseModel):
     evaluations: list[EvaluationSpec] = Field(
         ..., description="List of evaluations to run"
     )
-    experiment_name: str | None = Field(None, description="MLFlow experiment name")
-    tags: dict[str, str] = Field(
-        default_factory=dict, description="Tags for the evaluation run"
+    experiment: ExperimentConfig = Field(
+        ..., description="Experiment configuration for MLFlow tracking"
     )
     async_mode: bool = Field(
         default=True, description="Whether to run evaluations asynchronously"
@@ -211,11 +188,8 @@ class SimpleEvaluationRequest(BaseModel):
     benchmarks: list[BenchmarkConfig] = Field(
         ..., description="List of benchmarks to evaluate"
     )
-    experiment_name: str | None = Field(
-        None, description="Name for the evaluation experiment (optional)"
-    )
-    tags: dict[str, str] = Field(
-        default_factory=dict, description="Tags for the evaluation run"
+    experiment: ExperimentConfig = Field(
+        ..., description="Experiment configuration for MLFlow tracking"
     )
     timeout_minutes: int = Field(
         default=60, description="Timeout for the entire evaluation"

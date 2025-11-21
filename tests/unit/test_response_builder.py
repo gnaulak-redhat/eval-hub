@@ -13,6 +13,7 @@ from eval_hub.models.evaluation import (
     EvaluationResult,
     EvaluationSpec,
     EvaluationStatus,
+    ExperimentConfig,
     Model,
 )
 from eval_hub.services.response_builder import ResponseBuilder
@@ -36,7 +37,9 @@ def sample_evaluation_request():
     eval_spec = EvaluationSpec(name="Test Evaluation", model=model, backends=[backend])
 
     return EvaluationRequest(
-        request_id=uuid4(), evaluations=[eval_spec], experiment_name="Test Experiment"
+        request_id=uuid4(),
+        evaluations=[eval_spec],
+        experiment=ExperimentConfig(name="Test Experiment"),
     )
 
 

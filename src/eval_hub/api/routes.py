@@ -3,7 +3,7 @@
 import asyncio
 import time
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -29,12 +29,11 @@ from ..models.evaluation import (
     EvaluationResult,
     EvaluationSpec,
     EvaluationStatus,
+    ExperimentConfig,
     SimpleEvaluationRequest,
-    SingleBenchmarkEvaluationRequest,
 )
 from ..models.health import HealthResponse
 from ..models.provider import (
-    BenchmarkDetail,
     Collection,
     CollectionCreationRequest,
     CollectionUpdateRequest,
@@ -42,7 +41,6 @@ from ..models.provider import (
     ListCollectionsResponse,
     ListProvidersResponse,
     Provider,
-    ProviderType,
 )
 from ..services.executor import EvaluationExecutor
 from ..services.mlflow_client import MLFlowClient
@@ -124,203 +122,6 @@ async def health_check(settings: Settings = Depends(get_settings)) -> HealthResp
 
 
 @router.post(
-    "/evaluations/benchmarks/{provider_id}/{benchmark_id}",
-    response_model=EvaluationResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    tags=["Benchmarks"],
-)
-async def create_single_benchmark_evaluation(
-    provider_id: str,
-    benchmark_id: str,
-    request: SingleBenchmarkEvaluationRequest,
-    background_tasks: BackgroundTasks,
-    async_mode: bool = Query(True, description="Run evaluation asynchronously"),
-    parser: RequestParser = Depends(get_request_parser),
-    executor: EvaluationExecutor = Depends(get_evaluation_executor),
-    mlflow_client: MLFlowClient = Depends(get_mlflow_client),
-    response_builder: ResponseBuilder = Depends(get_response_builder),
-    settings: Settings = Depends(get_settings),
-    provider_service: ProviderService = Depends(get_provider_service),
-) -> EvaluationResponse:
-    """Run an evaluation on a single benchmark (Llama Stack compatible API)."""
-
-    # Get benchmark details
-    benchmark = provider_service.get_benchmark_by_id(provider_id, benchmark_id)
-    if not benchmark:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Benchmark {provider_id}::{benchmark_id} not found",
-        )
-
-    # Get provider to determine backend type
-    provider = provider_service.get_provider_by_id(provider_id)
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Provider {provider_id} not found",
-        )
-
-    # Map provider type and ID to backend type
-    if (
-        provider.provider_type == ProviderType.BUILTIN
-        and provider_id == "lm_evaluation_harness"
-    ):
-        backend_type = BackendType.LMEVAL
-    elif provider.provider_type == ProviderType.NEMO_EVALUATOR:
-        backend_type = BackendType.NEMO_EVALUATOR
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported provider type: {provider.provider_type} (provider_id: {provider_id})",
-        )
-
-    # Build benchmark config
-    benchmark_config = {}
-    if request.limit is not None:
-        benchmark_config["limit"] = request.limit
-    if request.num_fewshot is not None:
-        benchmark_config["num_fewshot"] = request.num_fewshot
-    elif benchmark.num_few_shot is not None:
-        benchmark_config["num_fewshot"] = benchmark.num_few_shot
-
-    # Create full evaluation request
-    evaluation_request = EvaluationRequest(
-        request_id=uuid4(),
-        experiment_name=request.experiment_name
-        or f"Single Benchmark - {benchmark.name}",
-        tags={
-            **request.tags,
-            "benchmark_id": f"{provider_id}::{benchmark_id}",
-            "provider_id": provider_id,
-            "api_type": "single_benchmark",
-        },
-        evaluations=[
-            EvaluationSpec(
-                name=f"{benchmark.name} Evaluation",
-                description=f"Evaluation of {request.model.url}::{request.model.name} on {benchmark.name}",
-                model=request.model,
-                backends=[
-                    BackendSpec(
-                        name=f"{provider_id}-backend",
-                        type=backend_type,
-                        endpoint=None,
-                        config={},
-                        benchmarks=[
-                            BenchmarkSpec(
-                                name=benchmark_id,
-                                tasks=[benchmark_id],
-                                num_fewshot=None,
-                                batch_size=None,
-                                limit=None,
-                                device=None,
-                                config=benchmark_config,
-                            )
-                        ],
-                    )
-                ],
-                risk_category=None,
-                collection_id=None,
-                timeout_minutes=request.timeout_minutes,
-                retry_attempts=request.retry_attempts,
-            )
-        ],
-        callback_url=None,
-    )
-
-    logger.info(
-        "Received single benchmark evaluation request",
-        provider_id=provider_id,
-        benchmark_id=benchmark_id,
-        model_url=request.model_url,
-        model_name=request.model_name,
-    )
-
-    try:
-        # Parse and validate the request
-        parsed_request = await parser.parse_evaluation_request(evaluation_request)
-
-        # Create MLFlow experiment (mocked)
-        experiment_id = await mlflow_client.create_experiment(parsed_request)
-        experiment_url = await mlflow_client.get_experiment_url(experiment_id)
-
-        if async_mode:
-            # Initialize response for async execution
-            initial_response = await response_builder.build_response(
-                parsed_request,
-                [],
-                experiment_url,
-            )
-            initial_response.status = EvaluationStatus.PENDING
-
-            # Calculate total number of benchmark evaluations that will be executed
-            try:
-                total_benchmarks = sum(
-                    len(backend.benchmarks)
-                    for eval_spec in parsed_request.evaluations
-                    for backend in eval_spec.backends
-                )
-                initial_response.total_evaluations = total_benchmarks
-            except (TypeError, AttributeError):
-                # Handle mock objects or malformed requests
-                pass
-
-            # Store in active evaluations
-            active_evaluations[str(evaluation_request.request_id)] = initial_response
-
-            # Start background task
-            task = asyncio.create_task(
-                _execute_evaluation_async(
-                    parsed_request,
-                    experiment_id,
-                    experiment_url,
-                    executor,
-                    mlflow_client,
-                    response_builder,
-                )
-            )
-            evaluation_tasks[str(evaluation_request.request_id)] = task
-
-            return initial_response
-
-        else:
-            # Synchronous execution
-            results = await _execute_evaluation_sync(
-                parsed_request, experiment_id, executor, mlflow_client
-            )
-
-            # Build final response
-            response = await response_builder.build_response(
-                parsed_request, results, experiment_url
-            )
-
-            return response
-
-    except ValidationError as e:
-        logger.error(
-            "Validation failed for single benchmark evaluation",
-            provider_id=provider_id,
-            benchmark_id=benchmark_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Validation error: {e.message}",
-        ) from e
-
-    except Exception as e:
-        logger.error(
-            "Failed to create single benchmark evaluation",
-            provider_id=provider_id,
-            benchmark_id=benchmark_id,
-            error=str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create evaluation: {str(e)}",
-        ) from e
-
-
-@router.post(
     "/evaluations/jobs",
     response_model=EvaluationResponse,
     status_code=status.HTTP_202_ACCEPTED,
@@ -341,7 +142,7 @@ async def create_evaluation(
         "Received evaluation request",
         request_id=str(request.request_id),
         benchmark_count=len(request.benchmarks),
-        experiment_name=request.experiment_name,
+        experiment_name=request.experiment.name,
         async_mode=request.async_mode,
     )
 
@@ -419,7 +220,7 @@ async def create_evaluation(
             backend_specs.append(backend_spec)
 
         evaluation_spec = EvaluationSpec(
-            name=request.experiment_name or f"Evaluation-{request.request_id.hex[:8]}",
+            name=request.experiment.name or f"Evaluation-{request.request_id.hex[:8]}",
             description=f"Evaluation with {len(request.benchmarks)} benchmarks",
             model=request.model,
             backends=backend_specs,
@@ -433,8 +234,7 @@ async def create_evaluation(
         legacy_request = EvaluationRequest(
             request_id=request.request_id,
             evaluations=[evaluation_spec],
-            experiment_name=request.experiment_name,
-            tags=request.tags,
+            experiment=request.experiment,
             async_mode=request.async_mode,
             callback_url=request.callback_url,
             created_at=request.created_at,
@@ -516,7 +316,7 @@ async def create_evaluation(
 
 
 @router.get(
-    "/evaluations/jobs/{id}", response_model=EvaluationResponse, tags=["Benchmarks"]
+    "/evaluations/jobs/{id}", response_model=EvaluationResponse, tags=["Evaluations"]
 )
 async def get_evaluation_status(
     id: UUID,
@@ -544,7 +344,7 @@ async def get_evaluation_status(
 
 
 @router.get(
-    "/evaluations/jobs", response_model=list[EvaluationResponse], tags=["Benchmarks"]
+    "/evaluations/jobs", response_model=list[EvaluationResponse], tags=["Evaluations"]
 )
 async def list_evaluations(
     limit: int = Query(
@@ -572,7 +372,7 @@ async def list_evaluations(
     return evaluations
 
 
-@router.delete("/evaluations/jobs/{id}", tags=["Benchmarks"])
+@router.delete("/evaluations/jobs/{id}", tags=["Evaluations"])
 async def cancel_evaluation(
     id: UUID,
     executor: EvaluationExecutor = Depends(get_evaluation_executor),
@@ -605,7 +405,7 @@ async def cancel_evaluation(
     )
 
 
-@router.get("/evaluations/jobs/{id}/summary", tags=["Benchmarks"])
+@router.get("/evaluations/jobs/{id}/summary", tags=["Evaluations"])
 async def get_evaluation_summary(
     id: UUID,
     response_builder: ResponseBuilder = Depends(get_response_builder),
@@ -627,7 +427,7 @@ async def get_evaluation_summary(
         request_id=id,
         evaluations=[],  # Would be populated from stored data
         created_at=response.created_at,
-        experiment_name=None,
+        experiment=ExperimentConfig(name="mock-experiment"),
         callback_url=None,
     )
 
@@ -755,33 +555,6 @@ async def list_all_benchmarks(
     else:
         # Return all benchmarks
         return provider_service.get_all_benchmarks()
-
-
-@router.get(
-    "/evaluations/providers/{provider_id}/benchmarks/{benchmark_id}",
-    response_model=BenchmarkDetail,
-    tags=["Providers"],
-)
-async def get_benchmark(
-    provider_id: str,
-    benchmark_id: str,
-    provider_service: ProviderService = Depends(get_provider_service),
-) -> BenchmarkDetail:
-    """Get details of a specific benchmark."""
-    benchmark = provider_service.get_benchmark_by_id(provider_id, benchmark_id)
-    if not benchmark:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Benchmark {benchmark_id} not found for provider {provider_id}",
-        )
-
-    logger.info(
-        "Retrieved benchmark details",
-        provider_id=provider_id,
-        benchmark_id=benchmark_id,
-    )
-
-    return benchmark
 
 
 @router.get(

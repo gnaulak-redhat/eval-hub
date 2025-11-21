@@ -13,6 +13,7 @@ from eval_hub.models.evaluation import (
     EvaluationResult,
     EvaluationSpec,
     EvaluationStatus,
+    ExperimentConfig,
     Model,
     RiskCategory,
     SimpleEvaluationRequest,
@@ -104,14 +105,15 @@ class TestEvaluationModels:
 
         request = EvaluationRequest(
             evaluations=[eval_spec],
-            experiment_name="test-experiment",
-            tags={"team": "ai", "project": "eval"},
+            experiment=ExperimentConfig(
+                name="test-experiment", tags={"team": "ai", "project": "eval"}
+            ),
             async_mode=True,
         )
 
         assert len(request.evaluations) == 1
-        assert request.experiment_name == "test-experiment"
-        assert request.tags == {"team": "ai", "project": "eval"}
+        assert request.experiment.name == "test-experiment"
+        assert request.experiment.tags == {"team": "ai", "project": "eval"}
         assert request.async_mode is True
         assert isinstance(request.request_id, type(uuid4()))
         assert isinstance(request.created_at, datetime)
@@ -307,12 +309,14 @@ class TestEvaluationModels:
         request = SimpleEvaluationRequest(
             model=model,
             benchmarks=benchmarks,
-            experiment_name="llama-3.1-8b-reasoning-eval",
-            tags={
-                "environment": "production",
-                "model_family": "llama-3.1",
-                "evaluation_type": "reasoning",
-            },
+            experiment=ExperimentConfig(
+                name="llama-3.1-8b-reasoning-eval",
+                tags={
+                    "environment": "production",
+                    "model_family": "llama-3.1",
+                    "evaluation_type": "reasoning",
+                },
+            ),
         )
 
         assert request.model.url == "http://test-server:8000"
@@ -320,10 +324,10 @@ class TestEvaluationModels:
         assert len(request.benchmarks) == 2
         assert request.benchmarks[0].benchmark_id == "arc_easy"
         assert request.benchmarks[1].benchmark_id == "mmlu"
-        assert request.experiment_name == "llama-3.1-8b-reasoning-eval"
-        assert request.tags["environment"] == "production"
-        assert request.tags["model_family"] == "llama-3.1"
-        assert request.tags["evaluation_type"] == "reasoning"
+        assert request.experiment.name == "llama-3.1-8b-reasoning-eval"
+        assert request.experiment.tags["environment"] == "production"
+        assert request.experiment.tags["model_family"] == "llama-3.1"
+        assert request.experiment.tags["evaluation_type"] == "reasoning"
         assert isinstance(request.request_id, type(uuid4()))
         assert isinstance(request.created_at, datetime)
 
@@ -332,10 +336,14 @@ class TestEvaluationModels:
         model = Model(url="http://test-server:8000", name="test-model")
         benchmarks = [BenchmarkConfig(benchmark_id="test", provider_id="test_provider")]
 
-        request = SimpleEvaluationRequest(model=model, benchmarks=benchmarks)
+        request = SimpleEvaluationRequest(
+            model=model,
+            benchmarks=benchmarks,
+            experiment=ExperimentConfig(name="test-experiment"),
+        )
 
-        assert request.experiment_name is None
-        assert request.tags == {}
+        assert request.experiment.name == "test-experiment"
+        assert request.experiment.tags == {}
         assert request.timeout_minutes == 60
         assert request.retry_attempts == 3
         assert request.async_mode is True

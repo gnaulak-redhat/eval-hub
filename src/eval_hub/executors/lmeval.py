@@ -14,7 +14,11 @@ from kubernetes.client.rest import ApiException  # type: ignore[import-untyped]
 
 from ..core.exceptions import BackendError
 from ..core.logging import get_logger
-from ..models.evaluation import EvaluationResult, EvaluationStatus
+from ..models.evaluation import (
+    EvaluationResult,
+    EvaluationStatus,
+    ExperimentConfig,
+)
 from ..utils import parse_iso_datetime, safe_duration_seconds, utcnow
 from .base import ExecutionContext, Executor
 
@@ -273,7 +277,7 @@ class LMEvalExecutor(Executor):
                     )
                     evaluation_request = EvaluationRequest(
                         evaluations=[evaluation_spec],
-                        experiment_name=experiment_name,
+                        experiment=ExperimentConfig(name=experiment_name),
                         callback_url=None,
                         created_at=context.started_at,
                     )
@@ -844,7 +848,9 @@ class LMEvalExecutor(Executor):
 
                             evaluation_request = EvaluationRequest(
                                 evaluations=[evaluation_spec],
-                                experiment_name=f"lmeval_{context.benchmark_spec.name}",
+                                experiment=ExperimentConfig(
+                                    name=f"lmeval_{context.benchmark_spec.name}"
+                                ),
                                 callback_url=None,
                                 created_at=context.started_at,
                             )
@@ -979,7 +985,7 @@ class LMEvalExecutor(Executor):
                 )
                 evaluation_request = EvaluationRequest(
                     evaluations=[evaluation_spec],
-                    experiment_name=experiment_name,
+                    experiment=ExperimentConfig(name=experiment_name),
                     callback_url=None,
                     created_at=context.started_at,
                 )

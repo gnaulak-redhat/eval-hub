@@ -8,10 +8,10 @@ from .evaluation import (
     EvaluationResponse,
     EvaluationResult,
     EvaluationSpec,
+    ExperimentConfig,
     Model,
     RiskCategory,
     SimpleEvaluationRequest,
-    SingleBenchmarkEvaluationRequest,
 )
 from .health import HealthResponse
 from .status import EvaluationStatus, TaskStatus
@@ -24,11 +24,11 @@ __all__ = [
     "EvaluationResponse",
     "EvaluationResult",
     "EvaluationSpec",
+    "ExperimentConfig",
     "HealthResponse",
     "EvaluationStatus",
     "Model",
     "RiskCategory",
     "SimpleEvaluationRequest",
-    "SingleBenchmarkEvaluationRequest",
     "TaskStatus",
 ]

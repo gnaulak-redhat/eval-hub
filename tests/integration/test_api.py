@@ -64,7 +64,7 @@ class TestAPIEndpoints:
                     "config": {"num_fewshot": 0, "limit": 100},
                 }
             ],
-            "experiment_name": "Test Evaluation",
+            "experiment": {"name": "Test Evaluation"},
         }
 
         # Mock MLFlow client initialization to prevent hanging during dependency injection
@@ -105,7 +105,7 @@ class TestAPIEndpoints:
                     "config": {"num_fewshot": 0, "limit": 50},
                 },
             ],
-            "experiment_name": "Explicit Backend Test",
+            "experiment": {"name": "Explicit Backend Test"},
         }
 
         # Mock MLFlow client initialization to prevent hanging during dependency injection
@@ -142,6 +142,7 @@ class TestAPIEndpoints:
                     "config": {},
                 }
             ],
+            "experiment": {"name": "Validation Test"},
         }
 
         # Mock MLFlow client initialization to prevent hanging during dependency injection
@@ -256,7 +257,7 @@ class TestAPIEndpoints:
                     "config": {"num_fewshot": 0, "limit": 100},
                 }
             ],
-            "experiment_name": "Sync Test",
+            "experiment": {"name": "Sync Test"},
             "async_mode": False,
         }
 

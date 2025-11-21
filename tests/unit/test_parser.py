@@ -9,6 +9,7 @@ from eval_hub.models.evaluation import (
     BenchmarkSpec,
     EvaluationRequest,
     EvaluationSpec,
+    ExperimentConfig,
     RiskCategory,
 )
 from eval_hub.services.parser import RequestParser
@@ -93,7 +94,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         parsed_request = await parser.parse_evaluation_request(request)
 
@@ -111,7 +114,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.MEDIUM,
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         parsed_request = await parser.parse_evaluation_request(request)
 
@@ -146,7 +151,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.LOW,
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         parsed_request = await parser.parse_evaluation_request(request)
 
@@ -168,7 +175,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             risk_category=RiskCategory.CRITICAL,
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         parsed_request = await parser.parse_evaluation_request(request)
 
@@ -192,7 +201,9 @@ class TestRequestParser:
     @pytest.mark.asyncio
     async def test_validation_empty_evaluations(self, parser):
         """Test validation fails for empty evaluations list."""
-        request = EvaluationRequest(evaluations=[])
+        request = EvaluationRequest(
+            evaluations=[], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -211,7 +222,9 @@ class TestRequestParser:
             )
             evaluations.append(eval_spec)
 
-        request = EvaluationRequest(evaluations=evaluations)
+        request = EvaluationRequest(
+            evaluations=evaluations, experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -226,7 +239,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": ""},  # Empty model name
             risk_category=RiskCategory.LOW,
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -241,7 +256,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             # No backends or risk_category
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -257,7 +274,9 @@ class TestRequestParser:
             risk_category=RiskCategory.LOW,
             timeout_minutes=-1,
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -273,7 +292,9 @@ class TestRequestParser:
             risk_category=RiskCategory.LOW,
             retry_attempts=-1,
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -294,7 +315,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -314,7 +337,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         with pytest.raises(ValidationError) as exc_info:
             await parser.parse_evaluation_request(request)
@@ -335,7 +360,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         parsed_request = await parser.parse_evaluation_request(request)
 
@@ -371,7 +398,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend1, backend2],
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         total_count = parser.get_total_benchmark_count(request)
         assert total_count == 3  # 2 + 1 benchmarks
@@ -387,7 +416,9 @@ class TestRequestParser:
             model={"url": "http://test-server:8000", "name": "test-model"},
             backends=[backend],
         )
-        request = EvaluationRequest(evaluations=[eval_spec])
+        request = EvaluationRequest(
+            evaluations=[eval_spec], experiment=ExperimentConfig(name="test-evaluation")
+        )
 
         estimated_time = parser.estimate_completion_time(request)
 
