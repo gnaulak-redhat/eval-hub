@@ -31,8 +31,10 @@ def test_settings():
 def client(test_settings):
     """Create test client."""
     with patch("eval_hub.core.config.get_settings", return_value=test_settings):
-        app = create_app()
-        return TestClient(app)
+        # Mock MLFlow client to prevent connection attempts during tests
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            app = create_app()
+            return TestClient(app)
 
 
 class TestAPIEndpoints:
@@ -65,15 +67,19 @@ class TestAPIEndpoints:
             "experiment_name": "Test Evaluation",
         }
 
-        with patch(
-            "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
-            return_value="test-exp-1",
-        ):
+        # Mock MLFlow client initialization to prevent hanging during dependency injection
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
             with patch(
-                "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
-                return_value="http://test-mlflow:5000/#/experiments/1",
+                "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                return_value="test-exp-1",
             ):
-                response = client.post("/api/v1/evaluations/jobs", json=request_data)
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
+                    return_value="http://test-mlflow:5000/#/experiments/1",
+                ):
+                    response = client.post(
+                        "/api/v1/evaluations/jobs", json=request_data
+                    )
 
         assert response.status_code == 202
         data = response.json()
@@ -102,15 +108,19 @@ class TestAPIEndpoints:
             "experiment_name": "Explicit Backend Test",
         }
 
-        with patch(
-            "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
-            return_value="test-exp-2",
-        ):
+        # Mock MLFlow client initialization to prevent hanging during dependency injection
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
             with patch(
-                "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
-                return_value="http://test-mlflow:5000/#/experiments/2",
+                "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                return_value="test-exp-2",
             ):
-                response = client.post("/api/v1/evaluations/jobs", json=request_data)
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
+                    return_value="http://test-mlflow:5000/#/experiments/2",
+                ):
+                    response = client.post(
+                        "/api/v1/evaluations/jobs", json=request_data
+                    )
 
         assert response.status_code == 202
         data = response.json()
@@ -134,7 +144,9 @@ class TestAPIEndpoints:
             ],
         }
 
-        response = client.post("/api/v1/evaluations/jobs", json=request_data)
+        # Mock MLFlow client initialization to prevent hanging during dependency injection
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            response = client.post("/api/v1/evaluations/jobs", json=request_data)
 
         assert response.status_code == 400
         data = response.json()
@@ -248,22 +260,24 @@ class TestAPIEndpoints:
             "async_mode": False,
         }
 
-        with patch(
-            "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
-            return_value="test-exp-sync",
-        ):
+        # Mock MLFlow client initialization to prevent hanging during dependency injection
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
             with patch(
-                "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
-                return_value="http://test-mlflow:5000/#/experiments/sync",
+                "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                return_value="test-exp-sync",
             ):
                 with patch(
-                    "eval_hub.services.executor.EvaluationExecutor.execute_evaluation_request",
-                    return_value=[],
+                    "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
+                    return_value="http://test-mlflow:5000/#/experiments/sync",
                 ):
-                    # Test synchronous mode
-                    response = client.post(
-                        "/api/v1/evaluations/jobs", json=request_data
-                    )
+                    with patch(
+                        "eval_hub.services.executor.EvaluationExecutor.execute_evaluation_request",
+                        return_value=[],
+                    ):
+                        # Test synchronous mode
+                        response = client.post(
+                            "/api/v1/evaluations/jobs", json=request_data
+                        )
 
         assert response.status_code == 202
 
@@ -297,6 +311,8 @@ class TestAPIEndpoints:
             ]
         }
 
-        response = client.post("/api/v1/evaluations/jobs", json=request_data)
+        # Mock MLFlow client initialization to prevent hanging during dependency injection
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            response = client.post("/api/v1/evaluations/jobs", json=request_data)
 
         assert response.status_code == 422  # Validation error

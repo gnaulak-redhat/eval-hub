@@ -24,6 +24,8 @@ class ExecutionContext:
         retry_attempts: int,
         started_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
+        mlflow_client: Any = None,
+        experiment_name: str | None = None,
     ):
         self.evaluation_id = evaluation_id
         self.model_url = model_url
@@ -34,6 +36,8 @@ class ExecutionContext:
         self.retry_attempts = retry_attempts
         self.started_at = started_at or utcnow()
         self.metadata = metadata or {}
+        self.mlflow_client = mlflow_client
+        self.experiment_name = experiment_name
 
 
 class Executor(ABC):

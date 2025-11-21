@@ -21,6 +21,7 @@ from ..models.evaluation import (
 )
 from ..models.status import TaskInfo, TaskStatus
 from ..utils import safe_duration_seconds, utcnow
+from .mlflow_client import MLFlowClient
 
 
 class EvaluationExecutor:
@@ -38,6 +39,7 @@ class EvaluationExecutor:
         self,
         request: EvaluationRequest,
         progress_callback: Callable[[str, float, str], None] | None = None,
+        mlflow_client: MLFlowClient | None = None,
     ) -> list[EvaluationResult]:
         """Execute all evaluations in a request."""
         self.logger.info(
@@ -52,7 +54,12 @@ class EvaluationExecutor:
         tasks = []
         for evaluation in request.evaluations:
             task = asyncio.create_task(
-                self._execute_single_evaluation(evaluation, progress_callback)
+                self._execute_single_evaluation(
+                    evaluation,
+                    progress_callback,
+                    mlflow_client,
+                    request.experiment_name,
+                )
             )
             tasks.append(task)
 
@@ -94,6 +101,8 @@ class EvaluationExecutor:
         self,
         evaluation: EvaluationSpec,
         progress_callback: Callable[[str, float, str], None] | None = None,
+        mlflow_client: MLFlowClient | None = None,
+        experiment_name: str | None = None,
     ) -> list[EvaluationResult]:
         """Execute a single evaluation across all its backends."""
         log_evaluation_start(
@@ -111,7 +120,13 @@ class EvaluationExecutor:
             backend_tasks = []
             for backend in evaluation.backends:
                 task = asyncio.create_task(
-                    self._execute_backend(evaluation, backend, progress_callback)
+                    self._execute_backend(
+                        evaluation,
+                        backend,
+                        progress_callback,
+                        mlflow_client,
+                        experiment_name,
+                    )
                 )
                 backend_tasks.append(task)
 
@@ -180,6 +195,8 @@ class EvaluationExecutor:
         evaluation: EvaluationSpec,
         backend: BackendSpec,
         progress_callback: Callable[[str, float, str], None] | None = None,
+        mlflow_client: MLFlowClient | None = None,
+        experiment_name: str | None = None,
     ) -> list[EvaluationResult]:
         """Execute all benchmarks for a specific backend."""
         self.logger.info(
@@ -240,7 +257,12 @@ class EvaluationExecutor:
 
                 # Execute the combined benchmark
                 result = await self._execute_benchmark(
-                    evaluation, backend, combined_benchmark, progress_callback
+                    evaluation,
+                    backend,
+                    combined_benchmark,
+                    progress_callback,
+                    mlflow_client,
+                    experiment_name,
                 )
                 results.append(result)
 
@@ -270,7 +292,12 @@ class EvaluationExecutor:
             for benchmark in backend.benchmarks:
                 try:
                     result = await self._execute_benchmark(
-                        evaluation, backend, benchmark, progress_callback
+                        evaluation,
+                        backend,
+                        benchmark,
+                        progress_callback,
+                        mlflow_client,
+                        experiment_name,
                     )
                     results.append(result)
                 except Exception as e:
@@ -304,6 +331,8 @@ class EvaluationExecutor:
         backend: BackendSpec,
         benchmark: BenchmarkSpec,
         progress_callback: Callable[[str, float, str], None] | None = None,
+        mlflow_client: MLFlowClient | None = None,
+        experiment_name: str | None = None,
     ) -> EvaluationResult:
         """Execute a single benchmark on a specific backend."""
         async with self.execution_semaphore:
@@ -329,6 +358,8 @@ class EvaluationExecutor:
                 retry_attempts=evaluation.retry_attempts,
                 started_at=utcnow(),
                 metadata=evaluation.metadata,
+                mlflow_client=mlflow_client,
+                experiment_name=experiment_name,
             )
 
             self.logger.info(

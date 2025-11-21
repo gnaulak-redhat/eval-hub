@@ -4,10 +4,18 @@ import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
+from structlog.typing import FilteringBoundLogger
 
 from ..core.config import get_settings
 from ..core.exceptions import EvaluationServiceError, ExecutionError, ValidationError
@@ -25,6 +33,37 @@ REQUEST_DURATION = Histogram(
     "HTTP request duration in seconds",
     ["method", "endpoint"],
 )
+
+MLFLOW_HEALTH = Gauge(
+    "mlflow_health_status",
+    "MLflow tracking server health status (1 = healthy, 0 = unhealthy)",
+)
+
+
+async def check_mlflow_health(tracking_uri: str, logger: FilteringBoundLogger) -> bool:
+    """Check MLflow tracking server health by making an HTTP request to /health endpoint."""
+    try:
+        base_url = tracking_uri.rstrip("/")
+        health_url = f"{base_url}/health"
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(health_url)
+            is_healthy = response.status_code == 200
+            if not is_healthy:
+                logger.warning(
+                    "MLflow health check failed",
+                    status_code=response.status_code,
+                    tracking_uri=tracking_uri,
+                )
+            return is_healthy
+    except Exception as e:
+        logger.warning(
+            "MLflow health check error",
+            error=str(e),
+            error_type=type(e).__name__,
+            tracking_uri=tracking_uri,
+        )
+        return False
 
 
 @asynccontextmanager
@@ -201,7 +240,13 @@ def create_app() -> FastAPI:
     # Add metrics endpoint
     @app.get("/metrics")
     async def metrics() -> Response:
-        """Prometheus metrics endpoint."""
+        """Prometheus metrics endpoint with MLflow health check."""
+        settings = get_settings()
+
+        # Perform MLflow health check
+        mlflow_healthy = await check_mlflow_health(settings.mlflow_tracking_uri, logger)
+        MLFLOW_HEALTH.set(1 if mlflow_healthy else 0)
+
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     # Include API routes

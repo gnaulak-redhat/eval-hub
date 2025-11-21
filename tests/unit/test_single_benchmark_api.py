@@ -66,6 +66,8 @@ def mock_provider_service():
 @pytest.fixture
 def client_with_mock_provider(mock_provider_service):
     """Create test client with mocked provider service."""
+    from unittest.mock import patch
+
     from eval_hub.api.routes import (
         get_evaluation_executor,
         get_mlflow_client,
@@ -74,7 +76,9 @@ def client_with_mock_provider(mock_provider_service):
         get_response_builder,
     )
 
-    app = create_app()
+    # Mock MLFlow client initialization to prevent connection attempts during tests
+    with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+        app = create_app()
 
     # Mock all dependencies
     def override_provider_service():

@@ -29,8 +29,9 @@ def test_settings():
 def client(test_settings):
     """Create test client."""
     with patch("eval_hub.core.config.get_settings", return_value=test_settings):
-        app = create_app()
-        return TestClient(app)
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            app = create_app()
+            return TestClient(app)
 
 
 class TestRoutesErrorHandling:
@@ -60,15 +61,23 @@ class TestRoutesErrorHandling:
         client.app.dependency_overrides[get_provider_service] = lambda: mock_service
 
         try:
-            response = client.post("/api/v1/evaluations/jobs", json=request_data)
+            # Mock MLFlow client to prevent hanging on connection
+            with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                    return_value="test-exp",
+                ):
+                    response = client.post(
+                        "/api/v1/evaluations/jobs", json=request_data
+                    )
 
-            # HTTPException gets caught by generic handler and converted to 500
-            assert response.status_code == 500
-            data = response.json()
-            assert (
-                "Benchmark lm_evaluation_harness::nonexistent_benchmark not found"
-                in data["detail"]
-            )
+                    # HTTPException gets caught by generic handler and converted to 500
+                    assert response.status_code == 500
+                    data = response.json()
+                    assert (
+                        "Benchmark lm_evaluation_harness::nonexistent_benchmark not found"
+                        in data["detail"]
+                    )
         finally:
             # Clean up the override
             client.app.dependency_overrides.clear()
@@ -103,12 +112,20 @@ class TestRoutesErrorHandling:
         client.app.dependency_overrides[get_provider_service] = lambda: mock_service
 
         try:
-            response = client.post("/api/v1/evaluations/jobs", json=request_data)
+            # Mock MLFlow client to prevent hanging on connection
+            with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                    return_value="test-exp",
+                ):
+                    response = client.post(
+                        "/api/v1/evaluations/jobs", json=request_data
+                    )
 
-            # HTTPException gets caught by generic handler and converted to 500
-            assert response.status_code == 500
-            data = response.json()
-            assert "Provider nonexistent_provider not found" in data["detail"]
+                    # HTTPException gets caught by generic handler and converted to 500
+                    assert response.status_code == 500
+                    data = response.json()
+                    assert "Provider nonexistent_provider not found" in data["detail"]
         finally:
             # Clean up the override
             client.app.dependency_overrides.clear()
@@ -152,13 +169,21 @@ class TestRoutesErrorHandling:
         client.app.dependency_overrides[get_provider_service] = lambda: mock_service
 
         try:
-            response = client.post("/api/v1/evaluations/jobs", json=request_data)
+            # Mock MLFlow client to prevent hanging on connection
+            with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                    return_value="test-exp",
+                ):
+                    response = client.post(
+                        "/api/v1/evaluations/jobs", json=request_data
+                    )
 
-            # HTTPException gets caught by generic handler and converted to 500
-            assert response.status_code == 500
-            data = response.json()
-            assert "Unsupported provider type" in data["detail"]
-            assert "unsupported_provider" in data["detail"]
+                    # HTTPException gets caught by generic handler and converted to 500
+                    assert response.status_code == 500
+                    data = response.json()
+                    assert "Unsupported provider type" in data["detail"]
+                    assert "unsupported_provider" in data["detail"]
         finally:
             # Clean up the override
             client.app.dependency_overrides.clear()
@@ -195,24 +220,25 @@ class TestRoutesErrorHandling:
         client.app.dependency_overrides[get_provider_service] = lambda: mock_service
 
         try:
-            with patch(
-                "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
-                return_value="test-exp-sync",
-            ):
+            with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
                 with patch(
-                    "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
-                    return_value="http://test-mlflow:5000/#/experiments/sync",
+                    "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                    return_value="test-exp-sync",
                 ):
                     with patch(
-                        "eval_hub.services.executor.EvaluationExecutor.execute_evaluation_request",
-                        return_value=[],
+                        "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
+                        return_value="http://test-mlflow:5000/#/experiments/sync",
                     ):
-                        response = client.post(
-                            "/api/v1/evaluations/benchmarks/lm_evaluation_harness/arc_easy",
-                            json=request_data,
-                        )
+                        with patch(
+                            "eval_hub.services.executor.EvaluationExecutor.execute_evaluation_request",
+                            return_value=[],
+                        ):
+                            response = client.post(
+                                "/api/v1/evaluations/benchmarks/lm_evaluation_harness/arc_easy",
+                                json=request_data,
+                            )
 
-            assert response.status_code == 202
+                assert response.status_code == 202
         finally:
             client.app.dependency_overrides.clear()
 
@@ -223,10 +249,12 @@ class TestRoutesErrorHandling:
             "num_fewshot": 0,
         }
 
-        response = client.post(
-            "/api/v1/evaluations/benchmarks/lm_evaluation_harness/arc_easy",
-            json=request_data,
-        )
+        # Mock MLFlow client initialization to prevent hanging during dependency injection
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            response = client.post(
+                "/api/v1/evaluations/benchmarks/lm_evaluation_harness/arc_easy",
+                json=request_data,
+            )
 
         assert response.status_code == 400
         data = response.json()
@@ -256,10 +284,14 @@ class TestRoutesErrorHandling:
             # The exception should be handled by the route and converted to HTTP 500
             # If the exception propagates, catch it and verify it's the expected one
             try:
-                response = client.post(
-                    "/api/v1/evaluations/benchmarks/lm_evaluation_harness/arc_easy",
-                    json=request_data,
-                )
+                # Mock MLFlow client initialization to prevent hanging during dependency injection
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"
+                ):
+                    response = client.post(
+                        "/api/v1/evaluations/benchmarks/lm_evaluation_harness/arc_easy",
+                        json=request_data,
+                    )
                 # If we get here, the exception was handled properly
                 assert response.status_code == 500
                 data = response.json()

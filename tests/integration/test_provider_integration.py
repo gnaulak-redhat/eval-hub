@@ -217,9 +217,11 @@ def integration_client(test_settings, temp_providers_file_integration):
             return ProviderService(test_settings)
 
     with patch("eval_hub.core.config.get_settings", return_value=test_settings):
-        app = create_app()
-        app.dependency_overrides[get_provider_service] = override_provider_service
-        return TestClient(app)
+        # Mock MLFlow client to prevent connection attempts during tests
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            app = create_app()
+            app.dependency_overrides[get_provider_service] = override_provider_service
+            return TestClient(app)
 
 
 class TestProviderEndpointsIntegration:

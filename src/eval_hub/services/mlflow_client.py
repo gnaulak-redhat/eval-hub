@@ -1,7 +1,9 @@
 """MLFlow client service for experiment tracking and results storage."""
 
 from typing import Any
-from uuid import uuid4
+
+import mlflow
+from mlflow import MlflowClient
 
 from ..core.config import Settings
 from ..core.logging import get_logger
@@ -10,53 +12,94 @@ from ..utils import utcnow
 
 
 class MLFlowClient:
-    """Client for interacting with MLFlow tracking server (mocked for now)."""
+    """Client for interacting with MLFlow tracking server."""
 
     def __init__(self, settings: Settings):
         self.settings = settings
         self.logger = get_logger(__name__)
-        self._mock_experiments: dict[str, dict[str, Any]] = {}
-        self._mock_runs: dict[str, dict[str, Any]] = {}
+        self.client: MlflowClient | None = None
+
+        # Set up real MLFlow client
+        self._setup_mlflow()
+
         self.logger.info(
-            "MLFlow client configured (mock mode)",
+            "MLFlow client configured",
             tracking_uri=self.settings.mlflow_tracking_uri,
         )
 
     def _setup_mlflow(self) -> None:
-        """Set up MLFlow configuration (no-op in mock mode)."""
-        pass
+        """Set up MLFlow configuration."""
+        try:
+            # Set MLFlow tracking URI
+            mlflow.set_tracking_uri(self.settings.mlflow_tracking_uri)
+
+            # Create MLFlow client instance
+            self.client = MlflowClient()
+
+            # Test connection by listing experiments
+            experiments = self.client.search_experiments()
+            self.logger.info(
+                "MLFlow connection established",
+                tracking_uri=self.settings.mlflow_tracking_uri,
+                experiments_count=len(experiments),
+            )
+        except Exception as e:
+            self.logger.error(
+                "Failed to connect to MLFlow",
+                tracking_uri=self.settings.mlflow_tracking_uri,
+                error=str(e),
+            )
+            # Create a dummy client that will fail gracefully
+            self.client = None
 
     async def create_experiment(self, request: EvaluationRequest) -> str:
-        """Create or get an MLFlow experiment for the evaluation request (mocked)."""
+        """Create or get an MLFlow experiment for the evaluation request."""
+        if not self.client:
+            raise RuntimeError("MLFlow client not initialized")
+
         experiment_name = self._generate_experiment_name(request)
 
-        # Check if experiment already exists in mock storage
-        for exp_id, exp_data in self._mock_experiments.items():
-            if exp_data["name"] == experiment_name:
+        try:
+            # Check if experiment already exists
+            experiment = self.client.get_experiment_by_name(experiment_name)
+            if experiment:
+                experiment_id = experiment.experiment_id
                 self.logger.info(
-                    "Using existing MLFlow experiment (mock)",
+                    "Using existing MLFlow experiment",
                     experiment_name=experiment_name,
-                    experiment_id=exp_id,
+                    experiment_id=experiment_id,
                 )
-                return exp_id
+                return str(experiment_id)
+        except Exception:
+            # Experiment doesn't exist, create it
+            pass
 
-        # Create new mock experiment
-        experiment_id = f"exp_{uuid4().hex[:8]}"
-        self._mock_experiments[experiment_id] = {
-            "name": experiment_name,
-            "request_id": str(request.request_id),
-            "created_at": request.created_at.isoformat(),
-            "evaluation_count": len(request.evaluations),
-            "service_version": self.settings.version,
-        }
+        try:
+            # Create new experiment
+            experiment_id = self.client.create_experiment(
+                name=experiment_name,
+                tags={
+                    "request_id": str(request.request_id),
+                    "created_at": request.created_at.isoformat(),
+                    "evaluation_count": str(len(request.evaluations)),
+                    "service_version": self.settings.version,
+                },
+            )
 
-        self.logger.info(
-            "Created new MLFlow experiment (mock)",
-            experiment_name=experiment_name,
-            experiment_id=experiment_id,
-        )
+            self.logger.info(
+                "Created new MLFlow experiment",
+                experiment_name=experiment_name,
+                experiment_id=experiment_id,
+            )
 
-        return experiment_id
+            return str(experiment_id)
+        except Exception as e:
+            self.logger.error(
+                "Failed to create MLFlow experiment",
+                experiment_name=experiment_name,
+                error=str(e),
+            )
+            raise
 
     async def start_evaluation_run(
         self,
@@ -65,49 +108,74 @@ class MLFlowClient:
         backend_name: str,
         benchmark_name: str,
     ) -> str:
-        """Start an MLFlow run for a specific evaluation (mocked)."""
+        """Start an MLFlow run for a specific evaluation."""
+        if not self.client:
+            raise RuntimeError("MLFlow client not initialized")
+
         run_name = f"{evaluation.model_url}::{evaluation.model_name}_{backend_name}_{benchmark_name}"
 
-        # Create mock run
-        run_id = f"run_{uuid4().hex[:8]}"
-        self._mock_runs[run_id] = {
-            "experiment_id": experiment_id,
-            "run_name": run_name,
-            "evaluation_id": str(evaluation.id),
-            "model_server_id": evaluation.model_url,
-            "model_name": evaluation.model_name,
-            "backend_name": backend_name,
-            "benchmark_name": benchmark_name,
-            "risk_category": (
-                evaluation.risk_category.value if evaluation.risk_category else None
-            ),
-            "priority": str(evaluation.priority),
-            "started_at": utcnow().isoformat(),
-        }
+        try:
+            # Create run with tags and parameters
+            tags = {
+                "evaluation_id": str(evaluation.id),
+                "model_server_id": evaluation.model_url,
+                "model_name": evaluation.model_name,
+                "backend_name": backend_name,
+                "benchmark_name": benchmark_name,
+                "priority": str(evaluation.priority),
+                "started_at": utcnow().isoformat(),
+            }
 
-        self.logger.info(
-            "Started MLFlow run (mock)",
-            run_id=run_id,
-            run_name=run_name,
-            evaluation_id=str(evaluation.id),
-        )
+            if evaluation.risk_category:
+                tags["risk_category"] = evaluation.risk_category.value
 
-        return run_id
+            run = self.client.create_run(
+                experiment_id=experiment_id,
+                tags=tags,
+                run_name=run_name,
+            )
+            run_id = run.info.run_id
 
-    async def _log_evaluation_parameters(
-        self, evaluation: EvaluationSpec, backend_name: str, benchmark_name: str
-    ) -> None:
-        """Log evaluation parameters to the current MLFlow run (mocked)."""
-        # Mock implementation - parameters are stored in run data
-        self.logger.debug(
-            "Logging evaluation parameters (mock)",
-            evaluation_id=str(evaluation.id),
-            backend_name=backend_name,
-            benchmark_name=benchmark_name,
-        )
+            # Log parameters
+            params = {
+                "model_name": evaluation.model_name,
+                "model_url": evaluation.model_url,
+                "backend": backend_name,
+                "benchmark": benchmark_name,
+                "priority": str(evaluation.priority),
+            }
+
+            if evaluation.risk_category:
+                params["risk_category"] = evaluation.risk_category.value
+
+            for key, value in params.items():
+                self.client.log_param(run_id, key, str(value))
+
+            self.logger.info(
+                "Started MLFlow run",
+                run_id=run_id,
+                run_name=run_name,
+                evaluation_id=str(evaluation.id),
+                experiment_id=experiment_id,
+            )
+
+            return str(run_id)
+        except Exception as e:
+            self.logger.error(
+                "Failed to start MLFlow run",
+                evaluation_id=str(evaluation.id),
+                error=str(e),
+            )
+            raise
 
     async def log_evaluation_result(self, result: EvaluationResult) -> None:
-        """Log evaluation result to MLFlow (mocked)."""
+        """Log evaluation result to MLFlow."""
+        if not self.client:
+            self.logger.warning(
+                "MLFlow client not initialized, skipping result logging"
+            )
+            return
+
         if not result.mlflow_run_id:
             self.logger.warning(
                 "No MLFlow run ID found for result",
@@ -115,40 +183,108 @@ class MLFlowClient:
             )
             return
 
-        # Update mock run with result data
-        if result.mlflow_run_id in self._mock_runs:
-            self._mock_runs[result.mlflow_run_id].update(
-                {
-                    "status": result.status.value,
-                    "metrics": result.metrics,
-                    "artifacts": result.artifacts,
-                    "duration_seconds": result.duration_seconds,
-                    "started_at": (
-                        result.started_at.isoformat() if result.started_at else None
-                    ),
-                    "completed_at": (
-                        result.completed_at.isoformat() if result.completed_at else None
-                    ),
-                    "error_message": result.error_message,
-                }
-            )
+        try:
+            # Log metrics if present
+            if result.metrics:
+                for metric_name, metric_value in result.metrics.items():
+                    if isinstance(metric_value, int | float):
+                        # Sanitize metric name for MLFlow compatibility
+                        # Replace invalid characters with underscores
+                        sanitized_name = metric_name.replace(",", "_").replace(" ", "_")
 
-        self.logger.info(
-            "Logged evaluation result to MLFlow (mock)",
-            run_id=result.mlflow_run_id,
-            evaluation_id=str(result.evaluation_id),
-            status=result.status.value,
-        )
+                        self.client.log_metric(
+                            run_id=result.mlflow_run_id,
+                            key=sanitized_name,
+                            value=float(metric_value),
+                        )
+
+            # Log additional result metadata as parameters
+            result_params = {
+                "status": result.status.value,
+                "provider_id": result.provider_id,
+                "benchmark_id": result.benchmark_id,
+                "benchmark_name": result.benchmark_name,
+            }
+
+            if result.duration_seconds is not None:
+                result_params["duration_seconds"] = str(result.duration_seconds)
+
+            if result.completed_at:
+                result_params["completed_at"] = result.completed_at.isoformat()
+
+            if result.error_message:
+                result_params["error_message"] = result.error_message
+
+            for key, value in result_params.items():
+                self.client.log_param(
+                    run_id=result.mlflow_run_id,
+                    key=key,
+                    value=str(value),
+                )
+
+            # Log artifacts if present and accessible
+            if result.artifacts:
+                for artifact_name, artifact_path in result.artifacts.items():
+                    try:
+                        if isinstance(artifact_path, str) and artifact_path:
+                            self.client.log_artifact(
+                                run_id=result.mlflow_run_id,
+                                local_path=artifact_path,
+                                artifact_path=artifact_name,
+                            )
+                    except Exception as artifact_error:
+                        self.logger.warning(
+                            "Failed to log artifact",
+                            run_id=result.mlflow_run_id,
+                            artifact_name=artifact_name,
+                            artifact_path=artifact_path,
+                            error=str(artifact_error),
+                        )
+
+            # Set run status based on evaluation result
+            mlflow_status = (
+                "FINISHED" if result.status.value == "completed" else "FAILED"
+            )
+            self.client.set_terminated(result.mlflow_run_id, mlflow_status)
+
+            self.logger.info(
+                "Logged evaluation result to MLFlow",
+                run_id=result.mlflow_run_id,
+                evaluation_id=str(result.evaluation_id),
+                status=result.status.value,
+                metrics_count=len(result.metrics or {}),
+                artifacts_count=len(result.artifacts or {}),
+            )
+        except Exception as e:
+            self.logger.error(
+                "Failed to log evaluation result to MLFlow",
+                run_id=result.mlflow_run_id,
+                evaluation_id=str(result.evaluation_id),
+                error=str(e),
+            )
+            # Don't raise - the evaluation itself was successful
 
     async def get_experiment_url(self, experiment_id: str) -> str:
-        """Get the URL for viewing an experiment in the MLFlow UI (mocked)."""
+        """Get the URL for viewing an experiment in the MLFlow UI."""
         base_url = self.settings.mlflow_tracking_uri.rstrip("/")
         return f"{base_url}/#/experiments/{experiment_id}"
 
     async def get_run_url(self, run_id: str) -> str:
-        """Get the URL for viewing a run in the MLFlow UI (mocked)."""
-        base_url = self.settings.mlflow_tracking_uri.rstrip("/")
-        return f"{base_url}/#/experiments/0/runs/{run_id}"
+        """Get the URL for viewing a run in the MLFlow UI."""
+        if not self.client:
+            base_url = self.settings.mlflow_tracking_uri.rstrip("/")
+            return f"{base_url}/#/experiments/0/runs/{run_id}"
+
+        try:
+            # Get run info to find the experiment ID
+            run = self.client.get_run(run_id)
+            experiment_id = run.info.experiment_id
+            base_url = self.settings.mlflow_tracking_uri.rstrip("/")
+            return f"{base_url}/#/experiments/{experiment_id}/runs/{run_id}"
+        except Exception:
+            # Fallback to generic URL
+            base_url = self.settings.mlflow_tracking_uri.rstrip("/")
+            return f"{base_url}/#/experiments/0/runs/{run_id}"
 
     async def search_runs(
         self,
@@ -156,40 +292,84 @@ class MLFlowClient:
         filter_string: str | None = None,
         max_results: int = 100,
     ) -> list[dict[str, Any]]:
-        """Search for runs in an experiment (mocked)."""
-        # Return mock runs for the experiment
-        runs = [
-            run_data
-            for run_id, run_data in self._mock_runs.items()
-            if run_data.get("experiment_id") == experiment_id
-        ]
-        return runs[:max_results]
+        """Search for runs in an experiment."""
+        if not self.client:
+            return []
+
+        try:
+            runs = self.client.search_runs(
+                experiment_ids=[experiment_id],
+                filter_string=filter_string or "",
+                max_results=max_results,
+            )
+
+            # Convert runs to dictionary format
+            run_data = []
+            for run in runs:
+                run_dict = {
+                    "run_id": run.info.run_id,
+                    "experiment_id": run.info.experiment_id,
+                    "status": run.info.status,
+                    "start_time": run.info.start_time,
+                    "end_time": run.info.end_time,
+                    "lifecycle_stage": run.info.lifecycle_stage,
+                    "tags": dict(run.data.tags),
+                    "params": dict(run.data.params),
+                    "metrics": dict(run.data.metrics),
+                }
+                run_data.append(run_dict)
+
+            return run_data
+        except Exception as e:
+            self.logger.error(
+                "Failed to search runs in experiment",
+                experiment_id=experiment_id,
+                error=str(e),
+            )
+            return []
 
     async def get_run_metrics(self, run_id: str) -> dict[str, float]:
-        """Get metrics for a specific run (mocked)."""
-        if run_id in self._mock_runs:
-            metrics = self._mock_runs[run_id].get("metrics", {})
+        """Get metrics for a specific run."""
+        if not self.client:
+            return {}
+
+        try:
+            run = self.client.get_run(run_id)
             # Filter to only numeric metrics
             return {
-                k: float(v) for k, v in metrics.items() if isinstance(v, int | float)
+                k: float(v)
+                for k, v in run.data.metrics.items()
+                if isinstance(v, int | float)
             }
-        return {}
+        except Exception as e:
+            self.logger.error(
+                "Failed to get run metrics",
+                run_id=run_id,
+                error=str(e),
+            )
+            return {}
 
     async def delete_experiment(self, experiment_id: str) -> None:
-        """Delete an experiment (mocked)."""
-        if experiment_id in self._mock_experiments:
-            del self._mock_experiments[experiment_id]
-            # Also delete associated runs
-            run_ids_to_delete = [
-                run_id
-                for run_id, run_data in self._mock_runs.items()
-                if run_data.get("experiment_id") == experiment_id
-            ]
-            for run_id in run_ids_to_delete:
-                del self._mock_runs[run_id]
-            self.logger.info(
-                "Deleted MLFlow experiment (mock)", experiment_id=experiment_id
+        """Delete an experiment."""
+        if not self.client:
+            self.logger.warning(
+                "MLFlow client not initialized, cannot delete experiment"
             )
+            return
+
+        try:
+            self.client.delete_experiment(experiment_id)
+            self.logger.info(
+                "Deleted MLFlow experiment",
+                experiment_id=experiment_id,
+            )
+        except Exception as e:
+            self.logger.error(
+                "Failed to delete MLFlow experiment",
+                experiment_id=experiment_id,
+                error=str(e),
+            )
+            raise
 
     def _generate_experiment_name(self, request: EvaluationRequest) -> str:
         """Generate a unique experiment name for the request."""
@@ -210,7 +390,7 @@ class MLFlowClient:
         return f"{self.settings.mlflow_experiment_prefix}_{base_name}"
 
     async def aggregate_experiment_metrics(self, experiment_id: str) -> dict[str, Any]:
-        """Aggregate metrics across all runs in an experiment (mocked)."""
+        """Aggregate metrics across all runs in an experiment."""
         runs = await self.search_runs(experiment_id)
 
         if not runs:

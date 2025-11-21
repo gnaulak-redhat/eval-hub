@@ -205,15 +205,17 @@ def client_with_mock_provider(mock_provider_service):
     """Create test client with mocked provider service."""
     from eval_hub.api.routes import get_provider_service
 
-    app = create_app()
+    # Mock MLFlow client to prevent connection attempts during tests
+    with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+        app = create_app()
 
-    # Override the provider service dependency
-    def override_provider_service():
-        return mock_provider_service
+        # Override the provider service dependency
+        def override_provider_service():
+            return mock_provider_service
 
-    app.dependency_overrides[get_provider_service] = override_provider_service
+        app.dependency_overrides[get_provider_service] = override_provider_service
 
-    return TestClient(app, raise_server_exceptions=False), mock_provider_service
+        return TestClient(app, raise_server_exceptions=False), mock_provider_service
 
 
 class TestProviderAPI:

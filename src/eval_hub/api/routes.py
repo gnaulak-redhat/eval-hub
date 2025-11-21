@@ -957,10 +957,10 @@ async def _execute_evaluation_async(
 
         # Execute evaluations
         results = await executor.execute_evaluation_request(
-            request, progress_callback_sync
+            request, progress_callback_sync, mlflow_client
         )
 
-        # Log results to MLFlow (mocked)
+        # Log results to MLFlow
         for result in results:
             if result.mlflow_run_id:
                 await mlflow_client.log_evaluation_result(result)
@@ -1003,9 +1003,9 @@ async def _execute_evaluation_sync(
 ) -> list[EvaluationResult]:
     """Execute evaluation synchronously."""
     # Execute evaluations
-    results = await executor.execute_evaluation_request(request)
+    results = await executor.execute_evaluation_request(request, None, mlflow_client)
 
-    # Log results to MLFlow (mocked)
+    # Log results to MLFlow
     for result in results:
         if result.mlflow_run_id:
             await mlflow_client.log_evaluation_result(result)
