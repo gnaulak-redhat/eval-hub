@@ -1024,10 +1024,10 @@
       },
       "EvaluationResponse": {
         "properties": {
-          "request_id": {
+          "id": {
             "type": "string",
             "format": "uuid",
-            "title": "Request Id",
+            "title": "Id",
             "description": "Original request ID"
           },
           "status": {
@@ -1124,7 +1124,7 @@
         "additionalProperties": true,
         "type": "object",
         "required": [
-          "request_id",
+          "id",
           "status",
           "total_evaluations",
           "created_at"

@@ -58,7 +58,7 @@ class ResponseBuilder:
         estimated_completion = self._estimate_completion_time(results, overall_status)
 
         response = EvaluationResponse(
-            request_id=request.request_id,
+            id=request.request_id,
             status=overall_status,
             total_evaluations=total_evaluations,
             completed_evaluations=completed_evaluations,

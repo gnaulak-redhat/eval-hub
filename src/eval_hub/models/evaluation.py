@@ -237,7 +237,7 @@ class EvaluationResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    request_id: UUID = Field(..., description="Original request ID")
+    id: UUID = Field(..., description="Original request ID")
     status: EvaluationStatus = Field(..., description="Overall request status")
     total_evaluations: int = Field(..., description="Total number of evaluations")
     completed_evaluations: int = Field(

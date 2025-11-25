@@ -84,7 +84,7 @@ class TestAPIEndpoints:
         assert response.status_code == 202
         data = response.json()
 
-        assert "request_id" in data
+        assert "id" in data
         assert data["status"] in ["pending", "running"]
         assert data["total_evaluations"] > 0
         assert "experiment_url" in data
@@ -125,7 +125,7 @@ class TestAPIEndpoints:
         assert response.status_code == 202
         data = response.json()
 
-        assert "request_id" in data
+        assert "id" in data
         assert data["total_evaluations"] == 2  # Updated to match 2 benchmarks
 
     def test_create_evaluation_validation_error(self, client):

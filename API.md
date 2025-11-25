@@ -217,7 +217,7 @@ curl -X POST "{{baseUrl}}/evaluations?async_mode=true" \
 
 ```json
 {
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "pending",
   "benchmarks": [
     {
@@ -319,7 +319,7 @@ curl -X GET "{{baseUrl}}/evaluations/jobs/550e8400-e29b-41d4-a716-446655440000"
 
 ```json
 {
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "running",
   "progress": 0.65,
   "benchmarks": [
@@ -376,7 +376,7 @@ curl -X GET "{{baseUrl}}/evaluations/jobs/550e8400-e29b-41d4-a716-446655440000/s
 
 ```json
 {
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "completed",
   "experiment_name": "comprehensive-model-assessment",
   "model": {
@@ -1361,7 +1361,7 @@ sequenceDiagram
     API->>MLFlow: Log collection evaluation experiment
     MLFlow->>API: Experiment ID and tracking URL
 
-    API->>Client: 202 ACCEPTED<br/>{<br/>  "request_id": "uuid",<br/>  "collection_id": "healthcare_safety_v1",<br/>  "evaluations": [<br/>    {"benchmark_id": "medqa", "provider_id": "lm_evaluation_harness"},<br/>    {"benchmark_id": "medical_safety", "provider_id": "lm_evaluation_harness"},<br/>    {"benchmark_id": "medical_reasoning", "provider_id": "lm_evaluation_harness"},<br/>    {"benchmark_id": "hipaa_compliance", "provider_id": "garak"},<br/>    {"benchmark_id": "faithfulness", "provider_id": "ragas"},<br/>    {"benchmark_id": "answer_relevancy", "provider_id": "ragas"}<br/>  ]<br/>}
+    API->>Client: 202 ACCEPTED<br/>{<br/>  "id": "uuid",<br/>  "collection_id": "healthcare_safety_v1",<br/>  "evaluations": [<br/>    {"benchmark_id": "medqa", "provider_id": "lm_evaluation_harness"},<br/>    {"benchmark_id": "medical_safety", "provider_id": "lm_evaluation_harness"},<br/>    {"benchmark_id": "medical_reasoning", "provider_id": "lm_evaluation_harness"},<br/>    {"benchmark_id": "hipaa_compliance", "provider_id": "garak"},<br/>    {"benchmark_id": "faithfulness", "provider_id": "ragas"},<br/>    {"benchmark_id": "answer_relevancy", "provider_id": "ragas"}<br/>  ]<br/>}
 
     Note over Client,MLFlow: Parallel execution across providers<br/>LMEval: 1 batch job (3 benchmarks)<br/>RAGAS: 2 individual jobs<br/>Garak: 1 individual job
 ```
@@ -1427,7 +1427,7 @@ curl -X POST "{{baseUrl}}/evaluations/collections/healthcare_safety_v1?async_mod
 
 ```json
 {
-  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "pending",
   "collection_id": "healthcare_safety_v1",
   "collection_name": "Healthcare Safety Assessment v1",
