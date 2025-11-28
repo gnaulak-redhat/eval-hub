@@ -15,9 +15,6 @@ class Model(BaseModel):
 
     url: str = Field(..., description="Model endpoint URL")
     name: str = Field(..., description="Model name/identifier")
-    configuration: dict[str, Any] = Field(
-        default_factory=dict, description="Model-specific configuration parameters"
-    )
 
 
 def get_utc_now() -> datetime:
@@ -150,10 +147,6 @@ class EvaluationSpec(BaseModel):
         """Get model name from model object."""
         return self.model.name
 
-    @property
-    def model_configuration(self) -> dict[str, Any]:
-        """Get model configuration from model object."""
-        return self.model.configuration
 
 
 class EvaluationRequest(BaseModel):

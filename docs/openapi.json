@@ -1516,12 +1516,6 @@
             "type": "string",
             "title": "Name",
             "description": "Model name/identifier"
-          },
-          "configuration": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Configuration",
-            "description": "Model-specific configuration parameters"
           }
         },
         "additionalProperties": true,

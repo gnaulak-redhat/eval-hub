@@ -225,19 +225,16 @@ class TestEvaluationModels:
         model = Model(
             url="http://test-server:8000",
             name="test-model",
-            configuration={"temperature": 0.1, "max_tokens": 512},
         )
 
         assert model.url == "http://test-server:8000"
         assert model.name == "test-model"
-        assert model.configuration == {"temperature": 0.1, "max_tokens": 512}
 
     def test_model_model_defaults(self):
         """Test Model model default values."""
         model = Model(url="http://test-server:8000", name="test-model")
         assert model.url == "http://test-server:8000"
         assert model.name == "test-model"
-        assert model.configuration == {}
 
     def test_benchmark_config_creation(self):
         """Test BenchmarkConfig model creation."""
@@ -278,7 +275,6 @@ class TestEvaluationModels:
         model = Model(
             url="http://test-server:8000",
             name="meta-llama/llama-3.1-8b",
-            configuration={"temperature": 0.1, "max_tokens": 512, "top_p": 0.95},
         )
 
         benchmarks = [
