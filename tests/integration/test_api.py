@@ -1,6 +1,9 @@
 """Integration tests for the API endpoints."""
 
+import asyncio
+from datetime import UTC, datetime
 from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -85,10 +88,12 @@ class TestAPIEndpoints:
         assert response.status_code == 202
         data = response.json()
 
-        assert "id" in data
-        assert data["status"] in ["pending", "running"]
-        assert data["total_evaluations"] > 0
-        assert "experiment_url" in data
+        assert "system" in data
+        assert data["system"]["status"]["state"] in ["pending", "running"]
+        assert data["model"]["name"] == request_data["model"]["name"]
+        assert len(data["benchmarks"]) == len(request_data["benchmarks"])
+        assert data.get("results") is None
+        assert data["experiment"]["name"] == request_data["experiment"]["name"]
 
     def test_create_evaluation_with_explicit_backends(self, client):
         """Test creating evaluation with multiple benchmarks."""
@@ -126,8 +131,9 @@ class TestAPIEndpoints:
         assert response.status_code == 202
         data = response.json()
 
-        assert "id" in data
-        assert data["total_evaluations"] == 2  # Updated to match 2 benchmarks
+        assert "system" in data
+        assert data["system"]["status"]["state"] in ["pending", "running"]
+        assert len(data["benchmarks"]) == 2  # Updated to match 2 benchmarks
 
     def test_create_evaluation_validation_error(self, client):
         """Test validation error for invalid evaluation request."""
@@ -176,8 +182,10 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 0
+        assert "items" in data
+        assert isinstance(data["items"], list)
+        assert len(data["items"]) == 0
+        assert data["total_count"] == 0
 
     def test_list_evaluations_with_filter(self, client):
         """Test listing evaluations with status filter."""
@@ -185,7 +193,97 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
+        assert "items" in data
+        assert isinstance(data["items"], list)
+
+    def test_list_evaluations_pagination(self, client):
+        """Test pagination links and counts."""
+        from eval_hub.api.routes import active_evaluations
+
+        active_evaluations.clear()
+
+        request_data = {
+            "model": {"url": "http://test-server:8000", "name": "test-model"},
+            "benchmarks": [
+                {
+                    "benchmark_id": "arc_easy",
+                    "provider_id": "lm_evaluation_harness",
+                    "config": {"num_fewshot": 0, "limit": 100},
+                }
+            ],
+            "experiment": {"name": "Pagination Test"},
+        }
+
+        with patch("eval_hub.services.mlflow_client.MLFlowClient._setup_mlflow"):
+            with patch(
+                "eval_hub.services.mlflow_client.MLFlowClient.create_experiment",
+                return_value="test-exp-3",
+            ):
+                with patch(
+                    "eval_hub.services.mlflow_client.MLFlowClient.get_experiment_url",
+                    return_value="http://test-mlflow:5000/#/experiments/3",
+                ):
+                    client.post("/api/v1/evaluations/jobs", json=request_data)
+                    client.post("/api/v1/evaluations/jobs", json=request_data)
+
+        response = client.get("/api/v1/evaluations/jobs?limit=1&offset=0")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["limit"] == 1
+        assert data["total_count"] == 2
+        assert len(data["items"]) == 1
+        assert data["first"]["href"]
+        assert data["next"]["href"]
+
+    def test_list_evaluations_summary(self, client):
+        """Test summary flag removes detailed results."""
+        from eval_hub.api.routes import active_evaluations
+        from eval_hub.core.config import Settings
+        from eval_hub.models.evaluation import (
+            BenchmarkConfig,
+            EvaluationResult,
+            EvaluationStatus,
+            ExperimentConfig,
+            Model,
+            SimpleEvaluationRequest,
+        )
+        from eval_hub.services.response_builder import ResponseBuilder
+
+        active_evaluations.clear()
+
+        simple_request = SimpleEvaluationRequest(
+            model=Model(url="http://example.com", name="sample"),
+            benchmarks=[
+                BenchmarkConfig(
+                    benchmark_id="demo",
+                    provider_id="lm_evaluation_harness",
+                    config={},
+                )
+            ],
+            experiment=ExperimentConfig(name="Summary Test"),
+        )
+        result = EvaluationResult(
+            provider_id="provider",
+            benchmark_id="demo",
+            status=EvaluationStatus.COMPLETED,
+            metrics={"score": 1.0},
+            artifacts={},
+            completed_at=datetime.now(UTC),
+        )
+        builder = ResponseBuilder(Settings())
+        eval_response = asyncio.run(
+            builder.build_response(
+                uuid4(), simple_request, [result], experiment_url=None
+            )
+        )
+        active_evaluations[str(eval_response.system.id)] = eval_response
+
+        response = client.get("/api/v1/evaluations/jobs?summary=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["results"] is None
 
     def test_cancel_evaluation_not_found(self, client):
         """Test canceling non-existent evaluation."""

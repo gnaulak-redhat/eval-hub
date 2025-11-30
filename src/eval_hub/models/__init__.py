@@ -10,6 +10,8 @@ from .evaluation import (
     EvaluationSpec,
     ExperimentConfig,
     Model,
+    PaginatedEvaluations,
+    PaginationLink,
     RiskCategory,
     SimpleEvaluationRequest,
 )
@@ -24,6 +26,8 @@ __all__ = [
     "EvaluationResponse",
     "EvaluationResult",
     "EvaluationSpec",
+    "PaginatedEvaluations",
+    "PaginationLink",
     "ExperimentConfig",
     "HealthResponse",
     "EvaluationStatus",

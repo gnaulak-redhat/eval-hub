@@ -29,8 +29,10 @@ from ..models.evaluation import (
     EvaluationResult,
     EvaluationSpec,
     EvaluationStatus,
-    ExperimentConfig,
+    PaginatedEvaluations,
+    PaginationLink,
     SimpleEvaluationRequest,
+    get_utc_now,
 )
 from ..models.health import HealthResponse
 from ..models.provider import (
@@ -255,14 +257,11 @@ async def create_evaluation(
         if request.async_mode:
             # Initialize response for async execution
             initial_response = await response_builder.build_response(
-                parsed_request,
+                request_id,
+                request,
                 [],  # No results yet
                 experiment_url,
             )
-            initial_response.status = EvaluationStatus.PENDING
-
-            # Calculate total number of benchmark evaluations
-            initial_response.total_evaluations = len(request.benchmarks)
 
             # Store in active evaluations
             active_evaluations[str(request_id)] = initial_response
@@ -271,6 +270,7 @@ async def create_evaluation(
             task = asyncio.create_task(
                 _execute_evaluation_async(
                     legacy_request,
+                    request,
                     experiment_id,
                     experiment_url,
                     executor,
@@ -290,7 +290,7 @@ async def create_evaluation(
 
             # Build final response
             response = await response_builder.build_response(
-                legacy_request, results, experiment_url
+                request_id, request, results, experiment_url
             )
 
             return response
@@ -339,41 +339,79 @@ async def get_evaluation_status(
     logger.info(
         "Retrieved evaluation status",
         request_id=request_id_str,
-        status=response.status,
-        completed=response.completed_evaluations,
-        total=response.total_evaluations,
+        status=response.system.status.state,
     )
 
     return response
 
 
 @router.get(
-    "/evaluations/jobs", response_model=list[EvaluationResponse], tags=["Evaluations"]
+    "/evaluations/jobs",
+    response_model=PaginatedEvaluations,
+    tags=["Evaluations"],
 )
 async def list_evaluations(
+    request: Request,
     limit: int = Query(
         50, ge=1, le=100, description="Maximum number of evaluations to return"
     ),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
     status_filter: str | None = Query(None, description="Filter by status"),
-) -> list[EvaluationResponse]:
+    summary: bool = Query(
+        False, description="If true, return summary view without detailed results"
+    ),
+) -> PaginatedEvaluations:
     """List all evaluation requests."""
     evaluations = list(active_evaluations.values())
 
     # Apply status filter
     if status_filter:
-        evaluations = [e for e in evaluations if e.status == status_filter]
+        evaluations = [e for e in evaluations if e.system.status.state == status_filter]
 
-    # Apply limit
-    evaluations = evaluations[:limit]
+    total_count = len(evaluations)
+
+    # Apply pagination window
+    evaluations = evaluations[offset : offset + limit]
+
+    if summary:
+        # Strip detailed results for summary view
+        summarized = []
+        for eval_item in evaluations:
+            eval_copy = eval_item.model_copy(deep=True)
+            eval_copy.results = None
+            summarized.append(eval_copy)
+        evaluations = summarized
+
+    # Build pagination links
+    base_params: dict[str, Any] = {"limit": limit, "summary": summary}
+    if status_filter is not None:
+        base_params["status_filter"] = status_filter
+
+    first_href = str(request.url.include_query_params(offset=0, **base_params))
+    next_href = None
+    next_offset = offset + limit
+    if next_offset < total_count:
+        next_href = str(
+            request.url.include_query_params(offset=next_offset, **base_params)
+        )
 
     logger.info(
         "Listed evaluations",
-        total_count=len(active_evaluations),
+        total_count=total_count,
         returned_count=len(evaluations),
         status_filter=status_filter,
+        offset=offset,
+        limit=limit,
+        summary=summary,
     )
 
-    return evaluations
+    return PaginatedEvaluations(
+        first=PaginationLink(href=first_href),
+        next=PaginationLink(href=next_href) if next_href else None,
+        limit=limit,
+        total_count=total_count,
+        items=evaluations,
+    )
 
 
 @router.delete("/evaluations/jobs/{id}", tags=["Evaluations"])
@@ -398,7 +436,8 @@ async def cancel_evaluation(
 
     # Update status
     response = active_evaluations[request_id_str]
-    response.status = EvaluationStatus.CANCELLED
+    response.system.status.state = "cancelled"
+    response.system.completed_at = get_utc_now()
 
     logger.info("Cancelled evaluation", request_id=request_id_str)
 
@@ -429,13 +468,13 @@ async def get_evaluation_summary(
     mock_request = EvaluationRequest(
         request_id=id,
         evaluations=[],  # Would be populated from stored data
-        created_at=response.created_at,
-        experiment=ExperimentConfig(name="mock-experiment"),
-        callback_url=None,
+        created_at=response.system.created_at,
+        experiment=response.experiment,
+        callback_url=response.callback_url,
     )
 
     summary = await response_builder.build_summary_response(
-        mock_request, response.results
+        mock_request, response.evaluation_results
     )
 
     logger.info("Generated evaluation summary", request_id=request_id_str)
@@ -457,7 +496,7 @@ async def get_system_metrics(
         "memory_usage": {
             "active_evaluations_mb": len(active_evaluations) * 0.1,  # Rough estimation
             "cached_results_mb": sum(
-                len(r.results) for r in active_evaluations.values()
+                len(r.evaluation_results) for r in active_evaluations.values()
             )
             * 0.01,
         },
@@ -467,7 +506,7 @@ async def get_system_metrics(
     # Count evaluations by status
     status_breakdown: dict[str, int] = {}
     for response in active_evaluations.values():
-        status_str = response.status.value
+        status_str = response.system.status.state
         status_breakdown[status_str] = status_breakdown.get(status_str, 0) + 1
     metrics["status_breakdown"] = status_breakdown
 
@@ -761,6 +800,7 @@ async def delete_collection(
 
 async def _execute_evaluation_async(
     request: EvaluationRequest,
+    simple_request: SimpleEvaluationRequest,
     experiment_id: str,
     experiment_url: str,
     executor: EvaluationExecutor,
@@ -774,8 +814,7 @@ async def _execute_evaluation_async(
         # Progress callback to update stored response
         def progress_callback_sync(eval_id: str, progress: float, message: str) -> None:
             if request_id_str in active_evaluations:
-                active_evaluations[request_id_str].status = EvaluationStatus.RUNNING
-                # In a real implementation, you'd update individual evaluation progress
+                active_evaluations[request_id_str].system.status.state = "running"
 
         # Execute evaluations
         results = await executor.execute_evaluation_request(
@@ -789,7 +828,7 @@ async def _execute_evaluation_async(
 
         # Build final response
         final_response = await response_builder.build_response(
-            request, results, experiment_url
+            request.request_id, simple_request, results, experiment_url
         )
 
         # Update stored response
@@ -799,7 +838,9 @@ async def _execute_evaluation_async(
             "Completed async evaluation",
             request_id=request_id_str,
             total_results=len(results),
-            successful_results=len([r for r in results if r.status == "completed"]),
+            successful_results=len(
+                [r for r in results if r.status == EvaluationStatus.COMPLETED]
+            ),
         )
 
     except Exception as e:
@@ -808,7 +849,9 @@ async def _execute_evaluation_async(
         # Update response with error
         if request_id_str in active_evaluations:
             response = active_evaluations[request_id_str]
-            response.status = EvaluationStatus.FAILED
+            response.system.status.state = "failed"
+            response.system.status.message = str(e)
+            response.system.completed_at = get_utc_now()
 
     finally:
         # Clean up task reference

@@ -1,15 +1,24 @@
 """Response builder service for aggregating evaluation results."""
 
 import statistics
-from typing import Any
+from datetime import datetime
+from typing import Any, cast
+from uuid import UUID
 
 from ..core.config import Settings
 from ..core.logging import get_logger
 from ..models.evaluation import (
+    BenchmarkResultPayload,
     EvaluationRequest,
     EvaluationResponse,
     EvaluationResult,
     EvaluationStatus,
+    ResultsPayload,
+    RunStatus,
+    SimpleEvaluationRequest,
+    SystemInfo,
+    SystemStatus,
+    get_utc_now,
 )
 
 
@@ -22,49 +31,77 @@ class ResponseBuilder:
 
     async def build_response(
         self,
-        request: EvaluationRequest,
+        request_id: UUID,
+        simple_request: SimpleEvaluationRequest,
         results: list[EvaluationResult],
         experiment_url: str | None = None,
     ) -> EvaluationResponse:
         """Build a comprehensive response from evaluation results."""
         self.logger.info(
             "Building evaluation response",
-            request_id=str(request.request_id),
+            request_id=str(request_id),
             result_count=len(results),
         )
 
-        # Calculate status counts
         status_counts = self._count_results_by_status(results)
-        total_evaluations = len(results)
-        completed_evaluations = status_counts.get(EvaluationStatus.COMPLETED, 0)
-        failed_evaluations = status_counts.get(EvaluationStatus.FAILED, 0)
+        expected_runs = len(simple_request.benchmarks)
+        system_state = self._determine_system_state(status_counts, expected_runs)
 
-        # Determine overall status
-        overall_status = self._determine_overall_status(
-            status_counts, total_evaluations
+        runs = self._build_runs(simple_request, results)
+        status_message = next((run.message for run in runs if run.message), "")
+        status_logs = next((run.logs_path for run in runs if run.logs_path), None)
+        completed_at = self._determine_completed_at(results, system_state)
+
+        results_payload: ResultsPayload | None = None
+        if system_state == "success" and results:
+            aggregated_metrics = await self._aggregate_metrics(results)
+            benchmark_payloads = [
+                BenchmarkResultPayload(
+                    name=result.benchmark_name or result.benchmark_id,
+                    metrics=result.metrics,
+                    artifacts=result.artifacts,
+                    mlflow_run_id=result.mlflow_run_id,
+                )
+                for result in results
+                if result.status == EvaluationStatus.COMPLETED
+            ]
+            results_payload = ResultsPayload(
+                benchmarks=benchmark_payloads,
+                aggregated_metrics=aggregated_metrics,
+                mlflow_experiment_url=experiment_url,
+            )
+
+        system_info = SystemInfo(
+            id=request_id,
+            status=SystemStatus(
+                state=system_state,
+                message=status_message,
+                logs_path=status_logs,
+                runs=runs,
+            ),
+            created_at=simple_request.created_at,
+            completed_at=completed_at,
         )
 
-        # Aggregate metrics
-        aggregated_metrics = await self._aggregate_metrics(results)
-
         response = EvaluationResponse(
-            id=request.request_id,
-            status=overall_status,
-            total_evaluations=total_evaluations,
-            completed_evaluations=completed_evaluations,
-            failed_evaluations=failed_evaluations,
-            results=results,
-            aggregated_metrics=aggregated_metrics,
-            experiment_url=experiment_url,
-            created_at=request.created_at,
+            system=system_info,
+            results=results_payload,
+            model=simple_request.model,
+            benchmarks=simple_request.benchmarks,
+            experiment=simple_request.experiment,
+            timeout_minutes=simple_request.timeout_minutes,
+            retry_attempts=simple_request.retry_attempts,
+            callback_url=simple_request.callback_url,
+            async_mode=simple_request.async_mode,
+            custom=simple_request.custom,
+            evaluation_results=results,
         )
 
         self.logger.info(
             "Built evaluation response",
-            request_id=str(request.request_id),
-            overall_status=overall_status,
-            completed_count=completed_evaluations,
-            failed_count=failed_evaluations,
+            request_id=str(request_id),
+            overall_status=system_state,
+            completed_runs=len([r for r in runs if r.state == "success"]),
         )
 
         return response
@@ -79,36 +116,83 @@ class ResponseBuilder:
             counts[status] = counts.get(status, 0) + 1
         return counts
 
-    def _determine_overall_status(
-        self, status_counts: dict[EvaluationStatus, int], total_evaluations: int
-    ) -> EvaluationStatus:
-        """Determine the overall status based on individual result statuses."""
+    def _determine_system_state(
+        self, status_counts: dict[EvaluationStatus, int], expected_runs: int
+    ) -> str:
+        """Determine the overall system state for the response."""
         if not status_counts:
-            return EvaluationStatus.PENDING
+            return "pending"
 
-        # If any are still running, overall status is running
         if status_counts.get(EvaluationStatus.RUNNING, 0) > 0:
-            return EvaluationStatus.RUNNING
+            return "running"
 
-        # If any are pending, overall status is pending
         if status_counts.get(EvaluationStatus.PENDING, 0) > 0:
-            return EvaluationStatus.PENDING
+            return "pending"
 
-        # If all are completed, overall status is completed
-        if status_counts.get(EvaluationStatus.COMPLETED, 0) == total_evaluations:
-            return EvaluationStatus.COMPLETED
+        if status_counts.get(EvaluationStatus.FAILED, 0) > 0:
+            return "failed"
 
-        # If any failed, check if all failed or partial
-        failed_count = status_counts.get(EvaluationStatus.FAILED, 0)
-        completed_count = status_counts.get(EvaluationStatus.COMPLETED, 0)
+        if status_counts.get(EvaluationStatus.CANCELLED, 0) >= expected_runs > 0:
+            return "cancelled"
 
-        if failed_count > 0 and completed_count == 0:
-            return EvaluationStatus.FAILED
-        elif failed_count > 0 and completed_count > 0:
-            # Partial completion - consider as completed with some failures
-            return EvaluationStatus.COMPLETED
-        else:
-            return EvaluationStatus.COMPLETED
+        completed = status_counts.get(EvaluationStatus.COMPLETED, 0)
+        if expected_runs and completed >= expected_runs:
+            return "success"
+
+        return "pending"
+
+    def _map_status_to_state(self, status: EvaluationStatus) -> str:
+        """Map internal evaluation status to API-facing state string."""
+        if status == EvaluationStatus.COMPLETED:
+            return "success"
+        if status == EvaluationStatus.FAILED:
+            return "failed"
+        if status == EvaluationStatus.CANCELLED:
+            return "cancelled"
+        return cast(str, status.value)
+
+    def _build_runs(
+        self,
+        simple_request: SimpleEvaluationRequest,
+        results: list[EvaluationResult],
+    ) -> list[RunStatus]:
+        """Build run status objects using user-provided benchmarks and results."""
+        result_lookup: dict[str, EvaluationResult] = {
+            result.benchmark_id: result for result in results
+        }
+
+        runs: list[RunStatus] = []
+        for benchmark in simple_request.benchmarks:
+            result = result_lookup.get(benchmark.benchmark_id)
+            result_state = (
+                self._map_status_to_state(result.status) if result else "pending"
+            )
+            message = result.error_message if result and result.error_message else ""
+            logs_path = result.artifacts.get("logs_path") if result else None
+
+            runs.append(
+                RunStatus(
+                    name=benchmark.benchmark_id,
+                    state=result_state,
+                    message=message,
+                    logs_path=logs_path,
+                )
+            )
+
+        return runs
+
+    def _determine_completed_at(
+        self, results: list[EvaluationResult], system_state: str
+    ) -> datetime | None:
+        """Calculate completion timestamp if the request reached a terminal state."""
+        if system_state not in {"success", "failed", "cancelled"}:
+            return None
+
+        timestamps = [result.completed_at for result in results if result.completed_at]
+        if timestamps:
+            return max(timestamps)
+
+        return get_utc_now()
 
     async def _aggregate_metrics(
         self, results: list[EvaluationResult]

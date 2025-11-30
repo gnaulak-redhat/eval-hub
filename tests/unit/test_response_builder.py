@@ -7,15 +7,12 @@ import pytest
 
 from eval_hub.core.config import Settings
 from eval_hub.models.evaluation import (
-    BackendSpec,
-    BackendType,
-    BenchmarkSpec,
-    EvaluationRequest,
+    BenchmarkConfig,
     EvaluationResult,
-    EvaluationSpec,
     EvaluationStatus,
     ExperimentConfig,
     Model,
+    SimpleEvaluationRequest,
 )
 from eval_hub.services.response_builder import ResponseBuilder
 
@@ -28,33 +25,42 @@ def response_builder():
 
 
 @pytest.fixture
-def sample_evaluation_request():
-    """Create a sample evaluation request."""
+def sample_request():
+    """Create a simple evaluation request."""
     model = Model(url="http://test-server:8000", name="test-model")
-    benchmark = BenchmarkSpec(name="test_benchmark", tasks=["test_task"])
-    backend = BackendSpec(
-        name="test-backend", type=BackendType.LMEVAL, benchmarks=[benchmark]
-    )
-    eval_spec = EvaluationSpec(name="Test Evaluation", model=model, backends=[backend])
-
-    return EvaluationRequest(
-        request_id=uuid4(),
-        evaluations=[eval_spec],
-        experiment=ExperimentConfig(name="Test Experiment"),
+    benchmarks = [
+        BenchmarkConfig(
+            benchmark_id="test_benchmark",
+            provider_id="lm_evaluation_harness",
+            config={"num_fewshot": 1},
+        )
+    ]
+    experiment = ExperimentConfig(name="Test Experiment")
+    return SimpleEvaluationRequest(
+        model=model,
+        benchmarks=benchmarks,
+        experiment=experiment,
+        timeout_minutes=45,
+        retry_attempts=2,
     )
 
 
 def create_evaluation_result(
-    status: EvaluationStatus, evaluation_id=None, duration_seconds=None
+    status: EvaluationStatus,
+    benchmark_id: str = "test_benchmark",
+    evaluation_id=None,
+    duration_seconds=None,
+    error_message: str | None = None,
 ):
     """Helper to create evaluation results with different statuses."""
     return EvaluationResult(
         evaluation_id=evaluation_id or uuid4(),
         provider_id="test_provider",
-        benchmark_id="test_benchmark",
+        benchmark_id=benchmark_id,
         status=status,
         metrics={"accuracy": 0.85},
         artifacts={"results": "/path/to/results"},
+        error_message=error_message,
         started_at=datetime.utcnow(),
         completed_at=datetime.utcnow()
         if status in [EvaluationStatus.COMPLETED, EvaluationStatus.FAILED]
@@ -75,7 +81,6 @@ class TestResponseBuilderStatusLogic:
         """Test counting results with mixed statuses."""
         results = [
             create_evaluation_result(EvaluationStatus.COMPLETED),
-            create_evaluation_result(EvaluationStatus.COMPLETED),
             create_evaluation_result(EvaluationStatus.FAILED),
             create_evaluation_result(EvaluationStatus.RUNNING),
             create_evaluation_result(EvaluationStatus.PENDING),
@@ -83,96 +88,97 @@ class TestResponseBuilderStatusLogic:
 
         counts = response_builder._count_results_by_status(results)
 
-        assert counts[EvaluationStatus.COMPLETED] == 2
+        assert counts[EvaluationStatus.COMPLETED] == 1
         assert counts[EvaluationStatus.FAILED] == 1
         assert counts[EvaluationStatus.RUNNING] == 1
         assert counts[EvaluationStatus.PENDING] == 1
 
-    def test_determine_overall_status_empty(self, response_builder):
-        """Test overall status determination with empty status counts."""
-        status = response_builder._determine_overall_status({}, 0)
-        assert status == EvaluationStatus.PENDING
-
-    def test_determine_overall_status_running(self, response_builder):
-        """Test overall status when any evaluations are running."""
+    def test_determine_system_state_running(self, response_builder):
+        """Overall state should be running when any evaluation is running."""
         status_counts = {
-            EvaluationStatus.COMPLETED: 2,
+            EvaluationStatus.COMPLETED: 1,
             EvaluationStatus.RUNNING: 1,
-            EvaluationStatus.PENDING: 1,
         }
-        status = response_builder._determine_overall_status(status_counts, 4)
-        assert status == EvaluationStatus.RUNNING
+        state = response_builder._determine_system_state(status_counts, expected_runs=2)
+        assert state == "running"
 
-    def test_determine_overall_status_pending(self, response_builder):
-        """Test overall status when any evaluations are pending (but none running)."""
-        status_counts = {EvaluationStatus.COMPLETED: 2, EvaluationStatus.PENDING: 1}
-        status = response_builder._determine_overall_status(status_counts, 3)
-        assert status == EvaluationStatus.PENDING
+    def test_determine_system_state_failed(self, response_builder):
+        """Any failure should surface a failed system state."""
+        status_counts = {EvaluationStatus.FAILED: 1, EvaluationStatus.COMPLETED: 1}
+        state = response_builder._determine_system_state(status_counts, expected_runs=2)
+        assert state == "failed"
 
-    def test_determine_overall_status_all_completed(self, response_builder):
-        """Test overall status when all evaluations are completed."""
-        status_counts = {EvaluationStatus.COMPLETED: 3}
-        status = response_builder._determine_overall_status(status_counts, 3)
-        assert status == EvaluationStatus.COMPLETED
 
-    def test_determine_overall_status_all_failed(self, response_builder):
-        """Test overall status when all evaluations failed."""
-        status_counts = {EvaluationStatus.FAILED: 3}
-        status = response_builder._determine_overall_status(status_counts, 3)
-        assert status == EvaluationStatus.FAILED
+class TestResponseBuilderResponseShape:
+    """Test ResponseBuilder output shape and content."""
 
-    def test_determine_overall_status_partial_failure(self, response_builder):
-        """Test overall status with partial failures (some completed, some failed)."""
-        status_counts = {EvaluationStatus.COMPLETED: 2, EvaluationStatus.FAILED: 1}
-        status = response_builder._determine_overall_status(status_counts, 3)
-        # Partial completion should be considered COMPLETED
-        assert status == EvaluationStatus.COMPLETED
-
-    def test_determine_overall_status_no_failures_or_completions(
-        self, response_builder
+    async def test_build_response_pending_preserves_request(
+        self, response_builder, sample_request
     ):
-        """Test overall status with cancelled evaluations (edge case)."""
-        status_counts = {EvaluationStatus.CANCELLED: 2}
-        status = response_builder._determine_overall_status(status_counts, 2)
-        # Should default to COMPLETED for any other case
-        assert status == EvaluationStatus.COMPLETED
-
-    async def test_build_response_calls_status_methods(
-        self, response_builder, sample_evaluation_request
-    ):
-        """Test that build_response method calls the status calculation methods."""
-        results = [
-            create_evaluation_result(EvaluationStatus.COMPLETED),
-            create_evaluation_result(EvaluationStatus.RUNNING),
-        ]
+        """Pending response should echo user-supplied fields."""
+        request_id = uuid4()
         experiment_url = "http://test-mlflow:5000/experiments/1"
 
-        # This will exercise the status calculation methods
         response = await response_builder.build_response(
-            sample_evaluation_request, results, experiment_url
+            request_id, sample_request, [], experiment_url
         )
 
-        # Verify the response uses the calculated status
-        assert response.status == EvaluationStatus.RUNNING  # Because one is running
-        assert response.total_evaluations > 0
-        assert response.results == results
+        assert response.system.id == request_id
+        assert response.system.status.state == "pending"
+        assert response.results is None
+        assert response.model.name == sample_request.model.name
+        assert len(response.benchmarks) == len(sample_request.benchmarks)
+        assert response.timeout_minutes == sample_request.timeout_minutes
+        assert response.retry_attempts == sample_request.retry_attempts
 
-    async def test_build_response_excludes_progress_fields(
-        self, response_builder, sample_evaluation_request
+    async def test_build_response_success_populates_results(
+        self, response_builder, sample_request
     ):
-        """build_response should not include progress/estimation fields."""
+        """Successful response should include results and aggregated metrics."""
+        request_id = uuid4()
         results = [
-            create_evaluation_result(EvaluationStatus.COMPLETED, duration_seconds=None),
-            create_evaluation_result(EvaluationStatus.RUNNING),
-            create_evaluation_result(EvaluationStatus.PENDING),
+            create_evaluation_result(
+                EvaluationStatus.COMPLETED,
+                benchmark_id=sample_request.benchmarks[0].benchmark_id,
+                duration_seconds=12.5,
+            )
         ]
         experiment_url = "http://test-mlflow:5000/experiments/1"
 
         response = await response_builder.build_response(
-            sample_evaluation_request, results, experiment_url
+            request_id, sample_request, results, experiment_url
         )
 
-        dumped = response.model_dump()
-        assert "estimated_completion" not in dumped
-        assert "progress_percentage" not in dumped
-        assert "updated_at" not in dumped
+        assert response.system.status.state == "success"
+        assert response.results is not None
+        assert response.results.mlflow_experiment_url == experiment_url
+        assert (
+            response.results.benchmarks[0].name
+            == sample_request.benchmarks[0].benchmark_id
+        )
+        assert response.results.aggregated_metrics["total_evaluations"] == 1
+        assert response.evaluation_results == results
+
+    async def test_build_response_failure_hides_results(
+        self, response_builder, sample_request
+    ):
+        """Failed response should surface status and omit results block."""
+        request_id = uuid4()
+        results = [
+            create_evaluation_result(
+                EvaluationStatus.FAILED,
+                benchmark_id=sample_request.benchmarks[0].benchmark_id,
+                error_message="backend error",
+            )
+        ]
+
+        response = await response_builder.build_response(
+            request_id, sample_request, results, experiment_url=None
+        )
+
+        assert response.system.status.state == "failed"
+        assert response.results is None
+        assert response.system.status.runs[0].state == "failed"
+        assert "backend error" in (
+            response.system.status.message or response.system.status.runs[0].message
+        )

@@ -231,25 +231,136 @@ class EvaluationResult(BaseModel):
     mlflow_run_id: str | None = Field(None, description="MLFlow run ID")
 
 
+class RunStatus(BaseModel):
+    """Status information for an individual benchmark run."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(..., description="User-provided benchmark name")
+    state: str = Field(..., description="Run state (pending, running, success, failed)")
+    message: str = Field(default="", description="Optional status message")
+    logs_path: str | None = Field(
+        default=None, description="Optional path to run-specific logs"
+    )
+
+
+class SystemStatus(BaseModel):
+    """Overall status for an evaluation request."""
+
+    model_config = ConfigDict(extra="allow")
+
+    state: str = Field(..., description="Overall state of the request")
+    message: str = Field(default="", description="Optional status message")
+    logs_path: str | None = Field(
+        default=None, description="Optional path to system logs"
+    )
+    runs: list[RunStatus] = Field(
+        default_factory=list, description="Status for each benchmark run"
+    )
+
+
+class SystemInfo(BaseModel):
+    """Metadata about the evaluation resource."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: UUID = Field(..., description="Unique evaluation request ID")
+    status: SystemStatus = Field(..., description="Current status of the request")
+    created_at: datetime = Field(..., description="Creation timestamp")
+    completed_at: datetime | None = Field(
+        default=None, description="Completion timestamp"
+    )
+
+
+class BenchmarkResultPayload(BaseModel):
+    """Result payload for a single benchmark."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(..., description="Benchmark name")
+    metrics: dict[str, float | int | str] = Field(
+        default_factory=dict, description="Benchmark metrics"
+    )
+    artifacts: dict[str, str] = Field(
+        default_factory=dict, description="Benchmark artifacts"
+    )
+    mlflow_run_id: str | None = Field(None, description="MLFlow run ID")
+
+
+class ResultsPayload(BaseModel):
+    """Container for evaluation results."""
+
+    model_config = ConfigDict(extra="allow")
+
+    benchmarks: list[BenchmarkResultPayload] = Field(
+        default_factory=list, description="List of benchmark results"
+    )
+    aggregated_metrics: dict[str, float | int | str] = Field(
+        default_factory=dict, description="Aggregated metrics across benchmarks"
+    )
+    mlflow_experiment_url: str | None = Field(
+        None, description="Link to the MLFlow experiment"
+    )
+
+
+class PaginationLink(BaseModel):
+    """Hypermedia link used for pagination."""
+
+    model_config = ConfigDict(extra="allow")
+
+    href: str = Field(..., description="Link URL")
+
+
 class EvaluationResponse(BaseModel):
     """Response payload for evaluation requests."""
 
     model_config = ConfigDict(extra="allow")
 
-    id: UUID = Field(..., description="Original request ID")
-    status: EvaluationStatus = Field(..., description="Overall request status")
-    total_evaluations: int = Field(..., description="Total number of evaluations")
-    completed_evaluations: int = Field(
-        default=0, description="Number of completed evaluations"
+    system: SystemInfo = Field(..., description="System metadata for the request")
+    results: ResultsPayload | None = Field(
+        default=None, description="Results payload available upon success"
     )
-    failed_evaluations: int = Field(
-        default=0, description="Number of failed evaluations"
+    model: Model = Field(..., description="Model configuration provided by the user")
+    benchmarks: list[BenchmarkConfig] = Field(
+        ..., description="Benchmarks provided in the request"
     )
-    results: list[EvaluationResult] = Field(
-        default_factory=list, description="Evaluation results"
+    experiment: ExperimentConfig = Field(
+        ..., description="Experiment configuration provided by the user"
     )
-    aggregated_metrics: dict[str, float | int | str] = Field(
-        default_factory=dict, description="Aggregated metrics across all evaluations"
+    timeout_minutes: int = Field(
+        ..., description="Timeout for the entire evaluation (user-provided)"
     )
-    experiment_url: str | None = Field(None, description="MLFlow experiment URL")
-    created_at: datetime = Field(..., description="Request creation timestamp")
+    retry_attempts: int = Field(
+        ..., description="Number of retry attempts (user-provided)"
+    )
+    callback_url: str | None = Field(
+        None, description="Callback URL provided by the user"
+    )
+    async_mode: bool = Field(
+        ..., description="Whether the evaluation runs asynchronously"
+    )
+    custom: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Custom fields supplied by the user in the request",
+    )
+    evaluation_results: list[EvaluationResult] = Field(
+        default_factory=list,
+        exclude=True,
+        description="Raw evaluation results (internal use only)",
+    )
+
+
+class PaginatedEvaluations(BaseModel):
+    """Paginated list response for evaluation resources."""
+
+    model_config = ConfigDict(extra="allow")
+
+    first: PaginationLink = Field(..., description="Link to the first page")
+    next: PaginationLink | None = Field(
+        default=None, description="Link to the next page, if available"
+    )
+    limit: int = Field(..., description="Page size used for this response")
+    total_count: int = Field(..., description="Total number of evaluations")
+    items: list[EvaluationResponse] = Field(
+        default_factory=list, description="Evaluations returned for this page"
+    )

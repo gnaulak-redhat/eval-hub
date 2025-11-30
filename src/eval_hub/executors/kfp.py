@@ -110,7 +110,7 @@ class KFPExecutor(Executor):
         """
         if self._kfp_client is None:
             try:
-                import kfp  # type: ignore[import-untyped]
+                import kfp
 
                 self._kfp_client = kfp.Client(
                     host=self.kfp_endpoint, namespace=self.namespace
