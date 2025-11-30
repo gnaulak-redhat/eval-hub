@@ -399,7 +399,6 @@ async def cancel_evaluation(
     # Update status
     response = active_evaluations[request_id_str]
     response.status = EvaluationStatus.CANCELLED
-    response.updated_at = utcnow()
 
     logger.info("Cancelled evaluation", request_id=request_id_str)
 
@@ -775,8 +774,7 @@ async def _execute_evaluation_async(
         # Progress callback to update stored response
         def progress_callback_sync(eval_id: str, progress: float, message: str) -> None:
             if request_id_str in active_evaluations:
-                response = active_evaluations[request_id_str]
-                response.updated_at = utcnow()
+                active_evaluations[request_id_str].status = EvaluationStatus.RUNNING
                 # In a real implementation, you'd update individual evaluation progress
 
         # Execute evaluations
@@ -811,7 +809,6 @@ async def _execute_evaluation_async(
         if request_id_str in active_evaluations:
             response = active_evaluations[request_id_str]
             response.status = EvaluationStatus.FAILED
-            response.updated_at = utcnow()
 
     finally:
         # Clean up task reference

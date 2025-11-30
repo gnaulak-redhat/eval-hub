@@ -1145,12 +1145,6 @@
             "format": "date-time",
             "title": "Created At",
             "description": "Request creation timestamp"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At",
-            "description": "Last update timestamp"
           }
         },
         "additionalProperties": true,

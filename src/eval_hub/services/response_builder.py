@@ -11,7 +11,6 @@ from ..models.evaluation import (
     EvaluationResult,
     EvaluationStatus,
 )
-from ..utils import utcnow
 
 
 class ResponseBuilder:
@@ -58,7 +57,6 @@ class ResponseBuilder:
             aggregated_metrics=aggregated_metrics,
             experiment_url=experiment_url,
             created_at=request.created_at,
-            updated_at=utcnow(),
         )
 
         self.logger.info(

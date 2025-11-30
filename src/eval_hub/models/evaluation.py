@@ -252,6 +252,3 @@ class EvaluationResponse(BaseModel):
     )
     experiment_url: str | None = Field(None, description="MLFlow experiment URL")
     created_at: datetime = Field(..., description="Request creation timestamp")
-    updated_at: datetime = Field(
-        default_factory=get_utc_now, description="Last update timestamp"
-    )

@@ -174,3 +174,4 @@ class TestResponseBuilderStatusLogic:
         dumped = response.model_dump()
         assert "estimated_completion" not in dumped
         assert "progress_percentage" not in dumped
+        assert "updated_at" not in dumped

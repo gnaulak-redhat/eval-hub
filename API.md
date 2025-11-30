@@ -339,7 +339,6 @@ curl -X GET "{{baseUrl}}/evaluations/jobs/550e8400-e29b-41d4-a716-446655440000"
       "progress": 0.0
     }
   ],
-  "updated_at": "2025-01-15T10:40:00Z"
 }
 ```
 
