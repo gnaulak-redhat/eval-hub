@@ -6,6 +6,9 @@ from uuid import uuid4
 
 import pytest
 
+# Skip all tests in this module if KFP is not installed
+pytest.importorskip("kfp")
+
 from eval_hub.adapters.base import SchemaAdapter
 from eval_hub.core.exceptions import BackendError
 from eval_hub.executors.base import ExecutionContext
