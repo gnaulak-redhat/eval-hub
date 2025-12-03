@@ -40,7 +40,7 @@ COPY --from=builder --chown=1001:0 /app/pyproject.toml /app/README.md ./
 RUN /opt/app-root/bin/python3 -m pip install -e .
 
 # Create required directories and set proper ownership for app directory (UID 1001 is the default non-root user in UBI9 Python)
-RUN mkdir -p /app/logs /app/data && \
+RUN mkdir -p logs temp && \
     chown -R 1001:0 /app && \
     chmod 755 /app/src/eval_hub/data && \
     chmod 644 /app/src/eval_hub/data/providers.yaml
