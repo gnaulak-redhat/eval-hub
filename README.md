@@ -526,8 +526,6 @@ Quick links:
 - [Code Standards](CONTRIBUTING.md#code-standards)
 - [Pull Request Process](CONTRIBUTING.md#pull-request-process)
 - [Issue Reporting](CONTRIBUTING.md#issue-reporting)
-- [Label Guide](.github/LABELS.md)
-- [OWNERS System](.github/OWNERS.md)
 
 ## License
 
