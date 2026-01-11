@@ -740,13 +740,13 @@ class EvaluationExecutor:
                 return None
 
             # Check if we have results section with evaluation counts
-            if not hasattr(current_response, 'results') or not current_response.results:
+            if not hasattr(current_response, "results") or not current_response.results:
                 return None
 
             results = current_response.results
-            total_evals = getattr(results, 'total_evaluations', 0)
-            completed_evals = getattr(results, 'completed_evaluations', 0)
-            failed_evals = getattr(results, 'failed_evaluations', 0)
+            total_evals = getattr(results, "total_evaluations", 0)
+            completed_evals = getattr(results, "completed_evaluations", 0)
+            failed_evals = getattr(results, "failed_evaluations", 0)
 
             # If all evaluations are done (completed + failed >= total), mark as completed
             if total_evals > 0 and (completed_evals + failed_evals >= total_evals):
@@ -760,10 +760,12 @@ class EvaluationExecutor:
                     updated_response.status.message = f"Evaluation completed with mixed results: {completed_evals} succeeded, {failed_evals} failed"
                 else:
                     updated_response.status.state = "completed"
-                    updated_response.status.message = f"All {completed_evals} evaluations completed successfully"
+                    updated_response.status.message = (
+                        f"All {completed_evals} evaluations completed successfully"
+                    )
 
                 # Update benchmark statuses to match
-                if hasattr(updated_response.status, 'benchmarks'):
+                if hasattr(updated_response.status, "benchmarks"):
                     for benchmark_status in updated_response.status.benchmarks:
                         if benchmark_status.state == "pending":
                             # Mark remaining as completed (they should have results by now)
@@ -775,7 +777,7 @@ class EvaluationExecutor:
                     evaluation_id=evaluation_id,
                     total=total_evals,
                     completed=completed_evals,
-                    failed=failed_evals
+                    failed=failed_evals,
                 )
 
                 return updated_response
