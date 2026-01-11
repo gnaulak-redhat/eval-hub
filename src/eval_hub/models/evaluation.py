@@ -327,7 +327,7 @@ class EvaluationJobBenchmarkConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    name: str = Field(..., description="the user provide name for this benchmark")
+    name: str | None = Field(None, description="Optional user-provided name for this benchmark")
     id: str = Field(
         ...,
         description="Benchmark identifier",
