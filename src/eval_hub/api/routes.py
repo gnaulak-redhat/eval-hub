@@ -170,7 +170,7 @@ async def create_evaluation(
     )
 
     try:
-        # Validate benchmarks exist
+        # Validate required benchmark fields
         for benchmark in job_benchmarks:
             bench_id = benchmark.id
             provider_id = benchmark.provider_id
@@ -179,15 +179,7 @@ async def create_evaluation(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Benchmark id and provider_id are required",
                 )
-
-            benchmark_detail = provider_service.get_benchmark_by_id(
-                provider_id, bench_id
-            )
-            if not benchmark_detail:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Benchmark {provider_id}::{bench_id} not found",
-                )
+            # Note: Allow any benchmark ID, even if not in predefined list
 
         # Group benchmarks by provider to create backend specs
         provider_benchmarks: dict[str, list[BenchmarkConfig]] = {}
@@ -235,11 +227,7 @@ async def create_evaluation(
             # Convert BenchmarkConfigs to BenchmarkSpecs
             benchmark_specs = []
             for bench_config in benchmarks:  # type: BenchmarkConfig
-                # Get benchmark details for additional info
-                benchmark_detail = provider_service.get_benchmark_by_id(
-                    bench_config.provider_id or "", bench_config.benchmark_id or ""
-                )
-
+                # Note: No longer fetching benchmark details since validation was removed
                 benchmark_spec = BenchmarkSpec(
                     name=bench_config.benchmark_id or "",
                     tasks=[bench_config.benchmark_id or ""],

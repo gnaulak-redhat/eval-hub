@@ -247,7 +247,8 @@ class ResponseBuilder:
         benchmarks = []
         for benchmark in job_request.benchmarks:
             benchmark_spec = EvaluationJobBenchmarkSpec(
-                name=benchmark.name or benchmark.id,  # Use id as fallback if name is None
+                name=benchmark.name
+                or benchmark.id,  # Use id as fallback if name is None
                 id=benchmark.id,
                 provider_id=benchmark.provider_id,
                 config=benchmark.config,
