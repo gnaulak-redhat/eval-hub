@@ -345,6 +345,7 @@ async def create_evaluation(
 async def get_evaluation_status(
     id: UUID,
     response_builder: ResponseBuilder = Depends(get_response_builder),
+    executor: EvaluationExecutor = Depends(get_evaluation_executor),
 ) -> EvaluationJobResource:
     """Get the status of an evaluation request."""
     request_id_str = str(id)
@@ -355,8 +356,18 @@ async def get_evaluation_status(
             detail=f"Evaluation request {id} not found",
         )
 
-    # Get the response (now in new format)
+    # Get the current response
     response = active_evaluations[request_id_str]
+
+    # If evaluation is still pending, check if the underlying job has completed
+    if response.status.state == "pending":
+        updated_response = await executor.check_and_update_evaluation_status(
+            request_id_str, response
+        )
+        if updated_response:
+            # Update stored evaluation with completed status
+            active_evaluations[request_id_str] = updated_response
+            response = updated_response
 
     logger.info(
         "Retrieved evaluation status",
@@ -364,7 +375,6 @@ async def get_evaluation_status(
         status=response.status.state,
     )
 
-    # Response is already in the correct format
     return response
 
 
