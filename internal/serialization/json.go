@@ -15,7 +15,7 @@ func Unmarshal(validate *validator.Validate, executionContext *executioncontext.
 	// now validate the unmarshalled data
 	err = validate.StructCtx(executionContext.Ctx, v)
 	if err != nil {
-		validationErrors := err.(validator.ValidationErrors)
+		validationErrors := err.(validator.ValidationErrors) // TODO: rewrite with safe assertions
 		for _, validationError := range validationErrors {
 			// TODO: add the validation error to the response?
 			executionContext.Logger.Info("Validation error", "field", validationError.Field(), "tag", validationError.Tag(), "value", validationError.Value())

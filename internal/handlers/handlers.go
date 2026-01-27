@@ -75,9 +75,9 @@ func (h *Handlers) successResponse(ctx *executioncontext.ExecutionContext, w htt
 		return
 	}
 
-	w.Write(jsonBytes)
 	h.setApplicationJSON(w)
 	w.WriteHeader(code)
+	w.Write(jsonBytes)
 
 	logging.LogRequestSuccess(ctx, code, response)
 }
