@@ -55,7 +55,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SimpleEvaluationRequest"
+                "$ref": "#/components/schemas/EvaluationJobRequest"
               }
             }
           }
@@ -66,7 +66,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvaluationResponse"
+                  "$ref": "#/components/schemas/EvaluationJobResource"
                 }
               }
             }
@@ -76,7 +76,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -91,6 +91,18 @@
         "description": "List all evaluation requests.",
         "operationId": "list_evaluations_api_v1_evaluations_jobs_get",
         "parameters": [
+          {
+            "name": "summary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Return summary information",
+              "default": false,
+              "title": "Summary"
+            },
+            "description": "Return summary information"
+          },
           {
             "name": "limit",
             "in": "query",
@@ -112,11 +124,11 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
-              "description": "Offset for pagination",
+              "description": "Number of evaluations to skip",
               "default": 0,
               "title": "Offset"
             },
-            "description": "Offset for pagination"
+            "description": "Number of evaluations to skip"
           },
           {
             "name": "status_filter",
@@ -135,18 +147,6 @@
               "title": "Status Filter"
             },
             "description": "Filter by status"
-          },
-          {
-            "name": "summary",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "If true, return summary view without detailed results",
-              "default": false,
-              "title": "Summary"
-            },
-            "description": "If true, return summary view without detailed results"
           }
         ],
         "responses": {
@@ -155,7 +155,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedEvaluations"
+                  "$ref": "#/components/schemas/EvaluationJobResourceList"
                 }
               }
             }
@@ -165,7 +165,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -199,7 +199,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EvaluationResponse"
+                  "$ref": "#/components/schemas/EvaluationJobResource"
                 }
               }
             }
@@ -209,7 +209,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -236,66 +236,15 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/evaluations/jobs/{id}/summary": {
-      "get": {
-        "tags": [
-          "Evaluations"
-        ],
-        "summary": "Get Evaluation Summary",
-        "description": "Get a summary of an evaluation request.",
-        "operationId": "get_evaluation_summary_api_v1_evaluations_jobs__id__summary_get",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Evaluation Summary Api V1 Evaluations Jobs  Id  Summary Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -338,7 +287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListProvidersResponse"
+                  "$ref": "#/components/schemas/ProviderList"
                 }
               }
             }
@@ -346,7 +295,7 @@
         }
       }
     },
-    "/api/v1/evaluations/providers/{provider_id}": {
+    "/api/v1/evaluations/providers/{id}": {
       "get": {
         "tags": [
           "Providers"
@@ -356,7 +305,7 @@
         "operationId": "get_provider_api_v1_evaluations_providers__provider_id__get",
         "parameters": [
           {
-            "name": "provider_id",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -381,7 +330,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -395,7 +344,7 @@
           "Benchmarks"
         ],
         "summary": "List All Benchmarks",
-        "description": "List all available benchmarks across providers (similar to Llama Stack format).",
+        "description": "List all available benchmarks across providers (simplified format).",
         "operationId": "list_all_benchmarks_api_v1_evaluations_benchmarks_get",
         "parameters": [
           {
@@ -459,7 +408,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListBenchmarksResponse"
+                  "$ref": "#/components/schemas/BenchmarksList"
                 }
               }
             }
@@ -469,7 +418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -491,7 +440,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListCollectionsResponse"
+                  "$ref": "#/components/schemas/CollectionResourceList"
                 }
               }
             }
@@ -521,7 +470,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Collection"
+                  "$ref": "#/components/schemas/CollectionResource"
                 }
               }
             }
@@ -531,7 +480,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -539,7 +488,7 @@
         }
       }
     },
-    "/api/v1/evaluations/collections/{collection_id}": {
+    "/api/v1/evaluations/collections/{id}": {
       "get": {
         "tags": [
           "Collections"
@@ -549,7 +498,7 @@
         "operationId": "get_collection_api_v1_evaluations_collections__collection_id__get",
         "parameters": [
           {
-            "name": "collection_id",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -564,7 +513,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Collection"
+                  "$ref": "#/components/schemas/CollectionResource"
                 }
               }
             }
@@ -574,58 +523,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Collections"
-        ],
-        "summary": "Update Collection",
-        "description": "Update an existing collection.",
-        "operationId": "update_collection_api_v1_evaluations_collections__collection_id__put",
-        "parameters": [
-          {
-            "name": "collection_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Collection Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CollectionUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Collection"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -641,7 +539,7 @@
         "operationId": "patch_collection_api_v1_evaluations_collections__collection_id__patch",
         "parameters": [
           {
-            "name": "collection_id",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -666,7 +564,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Collection"
+                  "$ref": "#/components/schemas/CollectionResource"
                 }
               }
             }
@@ -676,7 +574,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -692,7 +590,7 @@
         "operationId": "delete_collection_api_v1_evaluations_collections__collection_id__delete",
         "parameters": [
           {
-            "name": "collection_id",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -702,20 +600,15 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -728,14 +621,19 @@
     "schemas": {
       "Benchmark": {
         "properties": {
-          "benchmark_id": {
+          "id": {
             "type": "string",
             "title": "Benchmark Id",
             "description": "Unique benchmark identifier"
           },
-          "name": {
+          "provider_id": {
             "type": "string",
-            "title": "Name",
+            "title": "Provider Id",
+            "description": "The provider of this benchmark"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
             "description": "Human-readable benchmark name"
           },
           "description": {
@@ -782,11 +680,12 @@
             "description": "Tags for categorization"
           }
         },
-        "additionalProperties": true,
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "benchmark_id",
-          "name",
+          "id",
+          "provider_id",
+          "label",
           "description",
           "category",
           "metrics",
@@ -795,34 +694,6 @@
         "title": "Benchmark",
         "description": "Benchmark specification."
       },
-      "BenchmarkConfig": {
-        "properties": {
-          "benchmark_id": {
-            "type": "string",
-            "title": "Benchmark Id",
-            "description": "Benchmark identifier"
-          },
-          "provider_id": {
-            "type": "string",
-            "title": "Provider Id",
-            "description": "Provider identifier"
-          },
-          "config": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Config",
-            "description": "Benchmark configuration including num_fewshot, limit, batch_size, etc."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "benchmark_id",
-          "provider_id"
-        ],
-        "title": "BenchmarkConfig",
-        "description": "New simplified benchmark specification."
-      },
       "BenchmarkReference": {
         "properties": {
           "provider_id": {
@@ -830,7 +701,7 @@
             "title": "Provider Id",
             "description": "Provider identifier"
           },
-          "benchmark_id": {
+          "id": {
             "type": "string",
             "title": "Benchmark Id",
             "description": "Benchmark identifier"
@@ -839,7 +710,7 @@
             "type": "number",
             "title": "Weight",
             "description": "Weight for this benchmark in collection scoring",
-            "default": 1.0
+            "default": 1
           },
           "config": {
             "additionalProperties": true,
@@ -848,163 +719,42 @@
             "description": "Benchmark-specific configuration"
           }
         },
-        "additionalProperties": true,
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "provider_id",
-          "benchmark_id"
+          "id"
         ],
         "title": "BenchmarkReference",
         "description": "Reference to a benchmark within a collection."
       },
-      "BenchmarkResultPayload": {
+      "BenchmarksList": {
         "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "description": "Benchmark name"
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count",
+            "description": "Total number of benchmarks"
           },
-          "metrics": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            },
-            "type": "object",
-            "title": "Metrics",
-            "description": "Benchmark metrics"
-          },
-          "artifacts": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Artifacts",
-            "description": "Benchmark artifacts"
-          },
-          "mlflow_run_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mlflow Run Id",
-            "description": "MLFlow run ID"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "BenchmarkResultPayload",
-        "description": "Result payload for a single benchmark."
-      },
-      "Collection": {
-        "properties": {
-          "collection_id": {
-            "type": "string",
-            "title": "Collection Id",
-            "description": "Unique collection identifier"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "description": "Human-readable collection name"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description",
-            "description": "Collection description"
-          },
-          "provider_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Id",
-            "description": "Primary provider for this collection"
-          },
-          "tags": {
+          "items": {
             "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags",
-            "description": "Tags for categorizing the collection"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metadata",
-            "description": "Additional collection metadata"
-          },
-          "benchmarks": {
-            "items": {
-              "$ref": "#/components/schemas/BenchmarkReference"
+              "$ref": "#/components/schemas/Benchmark"
             },
             "type": "array",
             "title": "Benchmarks",
-            "description": "List of benchmark references in this collection"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At",
-            "description": "Collection creation timestamp"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At",
-            "description": "Collection last update timestamp"
+            "description": "List of all available benchmarks"
           }
         },
-        "additionalProperties": true,
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "collection_id",
-          "name",
-          "description",
-          "benchmarks"
+          "total_count",
+          "items"
         ],
-        "title": "Collection",
-        "description": "Collection of benchmarks for specific evaluation scenarios."
+        "title": "BenchmarksList",
+        "description": "Response for listing benchmarks."
       },
       "CollectionCreationRequest": {
         "properties": {
-          "collection_id": {
-            "type": "string",
-            "title": "Collection Id",
-            "description": "Unique collection identifier"
-          },
           "name": {
             "type": "string",
             "title": "Name",
@@ -1015,18 +765,6 @@
             "title": "Description",
             "description": "Collection description"
           },
-          "provider_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Id",
-            "description": "Primary provider for this collection"
-          },
           "tags": {
             "items": {
               "type": "string"
@@ -1035,10 +773,10 @@
             "title": "Tags",
             "description": "Tags for categorizing the collection"
           },
-          "metadata": {
+          "custom": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Metadata",
+            "title": "Custom",
             "description": "Additional collection metadata"
           },
           "benchmarks": {
@@ -1053,13 +791,108 @@
         "additionalProperties": true,
         "type": "object",
         "required": [
-          "collection_id",
           "name",
           "description",
           "benchmarks"
         ],
         "title": "CollectionCreationRequest",
         "description": "Request for creating a new collection."
+      },
+      "CollectionResource": {
+        "properties": {
+          "resource": {
+            "$ref": "#/components/schemas/Resource",
+            "description": "Resource metadata"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Collection name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Collection description"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "description": "Collection tags"
+          },
+          "custom": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Custom",
+            "description": "Custom metadata"
+          },
+          "benchmarks": {
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkReference"
+            },
+            "type": "array",
+            "title": "Benchmarks",
+            "description": "Collection benchmarks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resource",
+          "name",
+          "description"
+        ],
+        "title": "CollectionResource",
+        "description": "Collection resource."
+      },
+      "CollectionResourceList": {
+        "properties": {
+          "first": {
+            "$ref": "#/components/schemas/PaginationLink",
+            "description": "Link to first page"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaginationLink"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Link to next page"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Page size limit"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count",
+            "description": "Total number of items"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionResource"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Collection resources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "first",
+          "limit",
+          "total_count",
+          "items"
+        ],
+        "title": "CollectionResourceList",
+        "description": "List of collection resources."
       },
       "CollectionUpdateRequest": {
         "properties": {
@@ -1148,50 +981,9 @@
         "title": "CollectionUpdateRequest",
         "description": "Request for updating an existing collection."
       },
-      "EvaluationResponse": {
+      "Error": {
         "properties": {
-          "system": {
-            "$ref": "#/components/schemas/SystemInfo",
-            "description": "System metadata for the request"
-          },
-          "results": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ResultsPayload"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Results payload available upon success"
-          },
-          "model": {
-            "$ref": "#/components/schemas/Model",
-            "description": "Model configuration provided by the user"
-          },
-          "benchmarks": {
-            "items": {
-              "$ref": "#/components/schemas/BenchmarkConfig"
-            },
-            "type": "array",
-            "title": "Benchmarks",
-            "description": "Benchmarks provided in the request"
-          },
-          "experiment": {
-            "$ref": "#/components/schemas/ExperimentConfig",
-            "description": "Experiment configuration provided by the user"
-          },
-          "timeout_minutes": {
-            "type": "integer",
-            "title": "Timeout Minutes",
-            "description": "Timeout for the entire evaluation (user-provided)"
-          },
-          "retry_attempts": {
-            "type": "integer",
-            "title": "Retry Attempts",
-            "description": "Number of retry attempts (user-provided)"
-          },
-          "callback_url": {
+          "code": {
             "anyOf": [
               {
                 "type": "string"
@@ -1200,62 +992,76 @@
                 "type": "null"
               }
             ],
-            "title": "Callback Url",
-            "description": "Callback URL provided by the user"
+            "title": ""
           },
-          "async_mode": {
-            "type": "boolean",
-            "title": "Async Mode",
-            "description": "Whether the evaluation runs asynchronously"
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
           },
-          "custom": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Error",
+        "description": "Error"
+      },
+      "EvaluationJobBenchmarkConfig": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "the user provide name for this benchmark"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Benchmark identifier"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id",
+            "description": "Provider identifier"
+          },
+          "config": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Custom",
-            "description": "Custom fields supplied by the user in the request"
+            "title": "Config",
+            "description": "Benchmark configuration including num_fewshot, limit, batch_size, etc."
           }
         },
         "additionalProperties": true,
         "type": "object",
         "required": [
-          "system",
-          "model",
-          "benchmarks",
-          "experiment",
-          "timeout_minutes",
-          "retry_attempts",
-          "async_mode"
+          "name",
+          "id",
+          "provider_id"
         ],
-        "title": "EvaluationResponse",
-        "description": "Response payload for evaluation requests."
+        "title": "EvaluationJobBenchmarkConfig",
+        "description": "Benchmark configuration for EvaluationJobRequest."
       },
-      "EvaluationResult": {
+      "EvaluationJobBenchmarkResult": {
         "properties": {
-          "provider_id": {
+          "name": {
             "type": "string",
-            "title": "Provider Id",
-            "description": "Provider that ran the evaluation"
-          },
-          "benchmark_id": {
-            "type": "string",
-            "title": "Benchmark Id",
-            "description": "Benchmark identifier"
-          },
-          "benchmark_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Benchmark Name",
-            "description": "Benchmark display name"
-          },
-          "status": {
-            "$ref": "#/components/schemas/EvaluationStatus",
-            "description": "Evaluation status"
+            "title": "Name",
+            "description": "Benchmark name"
           },
           "metrics": {
             "additionalProperties": {
@@ -1283,56 +1089,6 @@
             "title": "Artifacts",
             "description": "Paths to result artifacts"
           },
-          "error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Message",
-            "description": "Error message if failed"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At",
-            "description": "Start timestamp"
-          },
-          "completed_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At",
-            "description": "Completion timestamp"
-          },
-          "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Seconds",
-            "description": "Evaluation duration"
-          },
           "mlflow_run_id": {
             "anyOf": [
               {
@@ -1346,27 +1102,310 @@
             "description": "MLFlow run ID"
           }
         },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "EvaluationJobBenchmarkResult",
+        "description": "Benchmark result for EvaluationJobResource - matches proposal structure."
+      },
+      "EvaluationJobBenchmarkSpec": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "User-provided name for this benchmark"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Benchmark identifier"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id",
+            "description": "Provider identifier"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config",
+            "description": "Benchmark configuration including num_fewshot, limit, batch_size, etc."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "id",
+          "provider_id"
+        ],
+        "title": "EvaluationJobBenchmarkSpec",
+        "description": "Benchmark specification for EvaluationJobResource response."
+      },
+      "EvaluationJobRequest": {
+        "properties": {
+          "model": {
+            "$ref": "#/components/schemas/Model",
+            "description": "Model specification for evaluation"
+          },
+          "benchmarks": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationJobBenchmarkConfig"
+            },
+            "type": "array",
+            "title": "Benchmarks",
+            "description": "List of benchmarks to evaluate"
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/ExperimentConfig",
+            "description": "Experiment configuration for MLFlow tracking"
+          },
+          "timeout_minutes": {
+            "type": "integer",
+            "title": "Timeout Minutes",
+            "description": "Timeout for the entire evaluation",
+            "default": 60
+          },
+          "retry_attempts": {
+            "type": "integer",
+            "title": "Retry Attempts",
+            "description": "Number of retry attempts on failure",
+            "default": 3
+          },
+          "callback_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callback Url",
+            "description": "URL to call when evaluation completes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "benchmarks",
+          "experiment"
+        ],
+        "title": "EvaluationJobRequest",
+        "description": "Simplified evaluation request using the new schema."
+      },
+      "EvaluationJobResource": {
+        "properties": {
+          "resource": {
+            "$ref": "#/components/schemas/Resource",
+            "description": "Resource metadata"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status",
+            "description": "Current status"
+          },
+          "results": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationJobResults"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Evaluation results"
+          },
+          "model": {
+            "$ref": "#/components/schemas/Model",
+            "description": "Model specification"
+          },
+          "benchmarks": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationJobBenchmarkSpec"
+            },
+            "type": "array",
+            "title": "Benchmarks",
+            "description": "Benchmark configurations"
+          },
+          "experiment": {
+            "$ref": "#/components/schemas/ExperimentConfig",
+            "description": "Experiment configuration"
+          },
+          "timeout_minutes": {
+            "type": "integer",
+            "title": "Timeout Minutes",
+            "description": "Timeout in minutes",
+            "default": 60
+          },
+          "retry_attempts": {
+            "type": "integer",
+            "title": "Retry Attempts",
+            "description": "Retry attempts",
+            "default": 3
+          },
+          "callback_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callback Url",
+            "description": "Callback URL"
+          }
+        },
         "additionalProperties": true,
         "type": "object",
         "required": [
-          "provider_id",
-          "benchmark_id",
-          "status"
+          "resource",
+          "status",
+          "model",
+          "benchmarks",
+          "experiment"
         ],
-        "title": "EvaluationResult",
-        "description": "Result of a single evaluation."
+        "title": "EvaluationJobResource",
+        "description": "Evaluation job resource response schema matching the proposal."
       },
-      "EvaluationStatus": {
-        "type": "string",
-        "enum": [
-          "pending",
-          "running",
-          "completed",
-          "failed",
-          "cancelled"
+      "EvaluationJobResourceList": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Page"
+          },
+          {
+            "properties": {
+              "items": {
+                "items": {
+                  "$ref": "#/components/schemas/EvaluationJobResource"
+                },
+                "type": "array"
+              }
+            }
+          }
         ],
-        "title": "EvaluationStatus",
-        "description": "Status of an evaluation."
+        "properties": {
+          "first": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "First",
+            "description": "Link to first page"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next",
+            "description": "Link to next page"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Page size limit"
+          },
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count",
+            "description": "Total number of items"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationJobResource"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Evaluation job resources"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "first",
+          "limit",
+          "total_count",
+          "items"
+        ],
+        "title": "EvaluationJobResourceList",
+        "description": "List of evaluation job resources with pagination."
+      },
+      "EvaluationJobResults": {
+        "properties": {
+          "total_evaluations": {
+            "type": "integer",
+            "title": "Total Evaluations",
+            "description": "Total number of evaluations"
+          },
+          "completed_evaluations": {
+            "type": "integer",
+            "title": "Completed Evaluations",
+            "description": "Number of completed evaluations",
+            "default": 0
+          },
+          "failed_evaluations": {
+            "type": "integer",
+            "title": "Failed Evaluations",
+            "description": "Number of failed evaluations",
+            "default": 0
+          },
+          "benchmarks": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationJobBenchmarkResult"
+            },
+            "type": "array",
+            "title": "Benchmarks",
+            "description": "Benchmark results"
+          },
+          "aggregated_metrics": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Aggregated Metrics",
+            "description": "Aggregated metrics across all evaluations"
+          },
+          "mlflow_experiment_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mlflow Experiment Url",
+            "description": "MLFlow experiment URL"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total_evaluations"
+        ],
+        "title": "EvaluationJobResults",
+        "description": "Results section for EvaluationJobResource."
       },
       "ExperimentConfig": {
         "properties": {
@@ -1391,19 +1430,6 @@
         ],
         "title": "ExperimentConfig",
         "description": "Configuration for MLFlow experiment tracking."
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
       },
       "HealthResponse": {
         "properties": {
@@ -1453,97 +1479,6 @@
         "title": "HealthResponse",
         "description": "Health check response."
       },
-      "ListBenchmarksResponse": {
-        "properties": {
-          "benchmarks": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Benchmarks",
-            "description": "List of all available benchmarks"
-          },
-          "total_count": {
-            "type": "integer",
-            "title": "Total Count",
-            "description": "Total number of benchmarks"
-          },
-          "providers_included": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Providers Included",
-            "description": "List of provider IDs included in the response"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "benchmarks",
-          "total_count",
-          "providers_included"
-        ],
-        "title": "ListBenchmarksResponse",
-        "description": "Response for listing all benchmarks (similar to Llama Stack format)."
-      },
-      "ListCollectionsResponse": {
-        "properties": {
-          "collections": {
-            "items": {
-              "$ref": "#/components/schemas/Collection"
-            },
-            "type": "array",
-            "title": "Collections",
-            "description": "List of available collections"
-          },
-          "total_collections": {
-            "type": "integer",
-            "title": "Total Collections",
-            "description": "Total number of collections"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "collections",
-          "total_collections"
-        ],
-        "title": "ListCollectionsResponse",
-        "description": "Response for listing all collections."
-      },
-      "ListProvidersResponse": {
-        "properties": {
-          "providers": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderSummary"
-            },
-            "type": "array",
-            "title": "Providers",
-            "description": "List of available providers"
-          },
-          "total_providers": {
-            "type": "integer",
-            "title": "Total Providers",
-            "description": "Total number of providers"
-          },
-          "total_benchmarks": {
-            "type": "integer",
-            "title": "Total Benchmarks",
-            "description": "Total number of benchmarks across all providers"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "providers",
-          "total_providers",
-          "total_benchmarks"
-        ],
-        "title": "ListProvidersResponse",
-        "description": "Response for listing all providers."
-      },
       "Model": {
         "properties": {
           "url": {
@@ -1566,52 +1501,6 @@
         "title": "Model",
         "description": "Model specification for evaluation requests."
       },
-      "PaginatedEvaluations": {
-        "properties": {
-          "first": {
-            "$ref": "#/components/schemas/PaginationLink",
-            "description": "Link to the first page"
-          },
-          "next": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PaginationLink"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Link to the next page, if available"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit",
-            "description": "Page size used for this response"
-          },
-          "total_count": {
-            "type": "integer",
-            "title": "Total Count",
-            "description": "Total number of evaluations"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/EvaluationResponse"
-            },
-            "type": "array",
-            "title": "Items",
-            "description": "Evaluations returned for this page"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "first",
-          "limit",
-          "total_count"
-        ],
-        "title": "PaginatedEvaluations",
-        "description": "Paginated list response for evaluation resources."
-      },
       "PaginationLink": {
         "properties": {
           "href": {
@@ -1620,304 +1509,241 @@
             "description": "Link URL"
           }
         },
-        "additionalProperties": true,
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "href"
         ],
         "title": "PaginationLink",
-        "description": "Hypermedia link used for pagination."
+        "description": "Pagination link with href field."
       },
       "Provider": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "ProviderSummary": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "ProviderType": {
-        "type": "string",
-        "enum": [
-          "builtin",
-          "nemo-evaluator"
-        ],
-        "title": "ProviderType",
-        "description": "Type of evaluation provider."
-      },
-      "ResultsPayload": {
         "properties": {
-          "benchmarks": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Provider identifier"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Provider display name"
+          },
+          "supported_benchmarks": {
             "items": {
-              "$ref": "#/components/schemas/BenchmarkResultPayload"
+              "$ref": "#/components/schemas/SupportedBenchmark"
             },
             "type": "array",
-            "title": "Benchmarks",
-            "description": "List of benchmark results"
-          },
-          "aggregated_metrics": {
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "string"
-                }
-              ]
-            },
-            "type": "object",
-            "title": "Aggregated Metrics",
-            "description": "Aggregated metrics across benchmarks"
-          },
-          "mlflow_experiment_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mlflow Experiment Url",
-            "description": "Link to the MLFlow experiment"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "title": "ResultsPayload",
-        "description": "Container for evaluation results."
-      },
-      "RunStatus": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "description": "User-provided benchmark name"
-          },
-          "state": {
-            "type": "string",
-            "title": "State",
-            "description": "Run state (pending, running, success, failed)"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message",
-            "description": "Optional status message",
-            "default": ""
-          },
-          "logs_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logs Path",
-            "description": "Optional path to run-specific logs"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "name",
-          "state"
-        ],
-        "title": "RunStatus",
-        "description": "Status information for an individual benchmark run."
-      },
-      "SimpleEvaluationRequest": {
-        "properties": {
-          "model": {
-            "$ref": "#/components/schemas/Model",
-            "description": "Model specification for evaluation"
-          },
-          "benchmarks": {
-            "items": {
-              "$ref": "#/components/schemas/BenchmarkConfig"
-            },
-            "type": "array",
-            "title": "Benchmarks",
-            "description": "List of benchmarks to evaluate"
-          },
-          "experiment": {
-            "$ref": "#/components/schemas/ExperimentConfig",
-            "description": "Experiment configuration for MLFlow tracking"
-          },
-          "timeout_minutes": {
-            "type": "integer",
-            "title": "Timeout Minutes",
-            "description": "Timeout for the entire evaluation",
-            "default": 60
-          },
-          "retry_attempts": {
-            "type": "integer",
-            "title": "Retry Attempts",
-            "description": "Number of retry attempts on failure",
-            "default": 3
-          },
-          "async_mode": {
-            "type": "boolean",
-            "title": "Async Mode",
-            "description": "Whether to run evaluations asynchronously",
-            "default": true
-          },
-          "callback_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Callback Url",
-            "description": "URL to call when evaluation completes"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At",
-            "description": "Request creation timestamp"
-          },
-          "custom": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Custom",
-            "description": "Custom fields for additional request data"
+            "title": "Supported Benchmarks",
+            "description": "Supported benchmarks"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "model",
-          "benchmarks",
-          "experiment"
+          "id",
+          "label"
         ],
-        "title": "SimpleEvaluationRequest",
-        "description": "Simplified evaluation request using the new schema."
+        "title": "Provider",
+        "description": "Provider specification."
       },
-      "SystemInfo": {
+      "ProviderList": {
+        "properties": {
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count",
+            "description": "Total number of providers"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Provider"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "List of providers"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total_count",
+          "items"
+        ],
+        "title": "ProviderList",
+        "description": "Response for listing providers."
+      },
+      "Resource": {
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid",
-            "title": "Id",
-            "description": "Unique evaluation request ID"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SystemStatus",
-            "description": "Current status of the request"
+            "title": ""
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "title": "Created At",
-            "description": "Creation timestamp"
+            "title": ""
           },
-          "completed_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At",
-            "description": "Completion timestamp"
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": ""
           }
         },
-        "additionalProperties": true,
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "id",
-          "status",
-          "created_at"
+          "created_at",
+          "updated_at"
         ],
-        "title": "SystemInfo",
-        "description": "Metadata about the evaluation resource."
+        "title": "Resource",
+        "description": "Resource"
       },
-      "SystemStatus": {
+      "Status": {
         "properties": {
           "state": {
             "type": "string",
-            "title": "State",
-            "description": "Overall state of the request"
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "",
+            "description": "Current state"
           },
           "message": {
             "type": "string",
-            "title": "Message",
-            "description": "Optional status message",
-            "default": ""
+            "title": "",
+            "description": "Status message"
           },
-          "logs_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Logs Path",
-            "description": "Optional path to system logs"
-          },
-          "runs": {
+          "benchmarks": {
             "items": {
-              "$ref": "#/components/schemas/RunStatus"
-            },
-            "type": "array",
-            "title": "Runs",
-            "description": "Status for each benchmark run"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "state"
-        ],
-        "title": "SystemStatus",
-        "description": "Overall status for an evaluation request."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
+              "properties": {
+                "name": {
                   "type": "string"
                 },
-                {
-                  "type": "integer"
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "running",
+                    "completed",
+                    "failed",
+                    "cancelled"
+                  ]
+                },
+                "started_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "completed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "logs": {
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
-              ]
+              },
+              "additionalProperties": true,
+              "type": "object"
             },
             "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
+            "title": "Benchmarks"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "loc",
-          "msg",
-          "type"
+          "state",
+          "message"
         ],
-        "title": "ValidationError"
+        "title": "Status",
+        "description": "Status"
+      },
+      "SupportedBenchmark": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Benchmark identifier"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "SupportedBenchmark",
+        "description": "Simplified benchmark reference for provider list response."
+      },
+      "Page": {
+        "additionalProperties": false,
+        "description": "Generic pagination schema.",
+        "properties": {
+          "first": {
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "next": {
+            "properties": {
+              "href": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "total_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "limit",
+          "total_count"
+        ],
+        "title": "Page",
+        "type": "object"
+      },
+      "Patch": {
+        "description": "Patch",
+        "items": {
+          "properties": {
+            "op": {
+              "enum": [
+                "replace",
+                "add",
+                "remove"
+              ],
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "value": {
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "title": "Patch",
+        "type": "array"
       }
     }
   }

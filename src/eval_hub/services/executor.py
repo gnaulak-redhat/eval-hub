@@ -491,7 +491,7 @@ class EvaluationExecutor:
         backend_name = context.backend_spec.name
         benchmark_name = context.benchmark_spec.name
 
-        self.logger.debug(
+        self.logger.info(
             "Executing benchmark implementation",
             evaluation_id=str(context.evaluation_id),
             backend_type=backend_type,

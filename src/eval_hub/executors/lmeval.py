@@ -214,7 +214,7 @@ class LMEvalExecutor(TrackedExecutor):
                 )
 
             # Execute the evaluation locally
-            result = await self._run_lm_eval(
+            result, actual_output_file = await self._run_lm_eval(
                 tasks=tasks,
                 context=context,
                 model=model,
@@ -230,12 +230,25 @@ class LMEvalExecutor(TrackedExecutor):
                 )
 
             # Convert result to eval-hub format
-            eval_result = await self._convert_lmeval_result_to_eval_hub(result, context)
+            eval_result = await self._convert_lmeval_result_to_eval_hub(
+                result, context, actual_output_file
+            )
+
+            self.logger.info(
+                "[DEBUG] Evaluation eval_result",
+                eval_result=eval_result,
+            )
 
             # Attach tracking ID and log completion
             final_result = self._with_tracking(eval_result, run_id)
             await self._track_complete(final_result, context)
 
+
+            self.logger.info(
+                "[DEBUG] Evaluation final_result",
+                final_result=final_result,
+            )
+            
             self.logger.info(
                 "LM Evaluation Harness execution completed",
                 evaluation_id=str(context.evaluation_id),
@@ -246,6 +259,16 @@ class LMEvalExecutor(TrackedExecutor):
             return final_result
 
         except Exception as e:
+            # log stack trace
+            import traceback
+            self.logger.error(
+                "[DEBUG]LM Evaluation Harness execution failed",
+                evaluation_id=str(context.evaluation_id),
+                benchmark=context.benchmark_spec.name,
+                error=str(e),
+                stack_trace=traceback.format_exc(),
+            )
+
             self.logger.error(
                 "LM Evaluation Harness execution failed",
                 evaluation_id=str(context.evaluation_id),
@@ -523,8 +546,8 @@ class LMEvalExecutor(TrackedExecutor):
         context: ExecutionContext,
         model: str,
         progress_callback: Callable[[str, float, str], None] | None,
-    ) -> dict[str, Any]:
-        """Run lm-evaluation-harness command and return results."""
+    ) -> tuple[dict[str, Any], str]:
+        """Run lm-evaluation-harness command and return results and actual file path."""
 
         # Build command
         cmd = [
@@ -562,7 +585,7 @@ class LMEvalExecutor(TrackedExecutor):
         output_file = f"{self.output_path}/results_{context.evaluation_id}_{context.benchmark_spec.name}.json"
         cmd.extend(["--output_path", output_file])
 
-        self.logger.debug(
+        self.logger.info(
             "Running LM Evaluation Harness command",
             evaluation_id=str(context.evaluation_id),
             command=" ".join(cmd),
@@ -604,15 +627,37 @@ class LMEvalExecutor(TrackedExecutor):
                     "Processing LM Evaluation Harness results",
                 )
 
+            # Load results from output file (or timestamped fallback)
+            self.logger.info(
+                f"[DEBUG]output_file: {output_file}",
+            )
+
+            result_path = Path(output_file)
+            if not result_path.exists():
+                # lm-eval sometimes appends a timestamp to the output filename
+                pattern = f"{result_path.stem}_*.json"
+                candidates = sorted(
+                    result_path.parent.glob(pattern),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                self.logger.info(
+                    f"[DEBUG]candidates: {candidates}",
+                )
+
+                if candidates:
+                    result_path = candidates[0]
+
             # Load results from output file
-            if Path(output_file).exists():
-                with open(output_file) as f:
+            if result_path.exists():
+                with open(result_path) as f:
                     result_data: dict[str, Any] = json.load(f)
-                return result_data
+                return result_data, str(result_path)
             else:
                 # Try to parse stdout as JSON
                 try:
-                    return json.loads(stdout.decode())  # type: ignore[no-any-return]
+                    result_data = json.loads(stdout.decode())
+                    return result_data, output_file
                 except json.JSONDecodeError as e:
                     raise BackendError(
                         "Failed to parse LM Evaluation Harness output as JSON"
@@ -624,7 +669,10 @@ class LMEvalExecutor(TrackedExecutor):
             ) from e
 
     async def _convert_lmeval_result_to_eval_hub(
-        self, lmeval_result: dict[str, Any], context: ExecutionContext
+        self, 
+        lmeval_result: dict[str, Any], 
+        context: ExecutionContext,
+        actual_output_file: str
     ) -> EvaluationResult:
         """Convert LM Evaluation Harness result to eval-hub EvaluationResult format."""
 
@@ -636,6 +684,9 @@ class LMEvalExecutor(TrackedExecutor):
         for task_name, task_results in lmeval_result.items():
             if isinstance(task_results, dict):
                 for metric_name, metric_value in task_results.items():
+                    # Only keep scalar metrics to satisfy EvaluationResult schema
+                    if not isinstance(metric_value, int | float | str):
+                        continue
                     # Flatten metric names
                     full_metric_name = (
                         f"{task_name}_{metric_name}"
@@ -644,9 +695,8 @@ class LMEvalExecutor(TrackedExecutor):
                     )
                     metrics[full_metric_name] = metric_value
 
-        # Add artifacts
-        output_file = f"{self.output_path}/results_{context.evaluation_id}_{context.benchmark_spec.name}.json"
-        artifacts["lmeval_results"] = output_file
+        # Add artifacts using the actual file path (may include timestamp)
+        artifacts["lmeval_results"] = actual_output_file
 
         # Save full result for debugging
         full_result_file = f"{self.output_path}/full_results_{context.evaluation_id}_{context.benchmark_spec.name}.json"

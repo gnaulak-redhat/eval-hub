@@ -2009,6 +2009,19 @@ providers:
     tags:
     - code
     - lm_eval
+  - benchmark_id: gsm8k
+    name: GSM8K
+    description: Grade School Math 8K - arithmetic reasoning
+    category: math
+    metrics:
+    - exact_match
+    - accuracy
+    num_few_shot: 0
+    dataset_size: 1319
+    tags:
+    - math
+    - reasoning
+    - lm_eval
 - provider_id: lighteval
   provider_name: Lighteval
   description: Lightweight LLM evaluation framework from Hugging Face
