@@ -15,66 +15,71 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
+    - name: Set up Go
+      uses: actions/setup-go@v5
       with:
-        version: "latest"
-
-    - name: Set up Python 3.12
-      run: uv python install 3.12
+        go-version: '1.25'
 
     - name: Install dependencies
-      run: |
-        uv sync --all-extras
+      run: make install-deps
 
-    - name: Install pre-commit hooks
+    - name: Format check
       run: |
-        uv run pre-commit install --install-hooks
+        make fmt
+        git diff --exit-code || (echo "Code is not formatted. Run 'make fmt' locally." && exit 1)
 
-    - name: Run pre-commit hooks
-      run: |
-        uv run pre-commit run --all-files
+    - name: Run linter
+      run: make lint
+
+    - name: Run vet
+      run: make vet
 
     - name: Run unit tests with coverage
       run: |
-        uv run pytest tests/ -m "unit" --cov=src/eval_hub --cov-report=xml --cov-report=term-missing
+        make test-coverage
+        go tool cover -func=coverage.out -o=coverage.txt
 
-    - name: Run integration tests
-      run: |
-        uv run pytest tests/ -m "integration" --tb=short
+    - name: Run FVT tests
+      run: make test-fvt
 
     - name: Upload coverage reports to Codecov
       continue-on-error: ${{ github.actor == 'dependabot[bot]' }}  # Don't fail CI on Dependabot PRs since they can't access secrets
       uses: codecov/codecov-action@v4
       with:
-        file: ./coverage.xml
+        file: ./coverage.out
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
 
   security-scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
 
-    - name: Set up Python
-      run: uv python install 3.12
+    - name: Run gosec security scan
+      uses: securego/gosec@master
+      with:
+        args: '-fmt sarif -out gosec-results.sarif ./...'
 
-    - name: Install dependencies
-      run: uv sync
+    - name: Upload SARIF to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: gosec-results.sarif
 
-    - name: Run security scan with bandit
-      run: |
-        uv add --dev bandit[toml]
-        uv run bandit -r src/ -f json -o bandit-report.json || true
-
-    - name: Upload security scan results
+    - name: Upload security scan results as artifact
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: security-scan-results
-        path: bandit-report.json
+        path: gosec-results.sarif
 
   docker-build:
     runs-on: ubuntu-latest
@@ -93,4 +98,4 @@ jobs:
 
     - name: Test Docker image
       run: |
-        docker run --rm eval-hub:${{ github.sha }} python -c "from eval_hub.main import main; print('✅ Import successful')"
+        docker run --rm eval-hub:${{ github.sha }} /app/eval-hub --help
