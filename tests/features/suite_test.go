@@ -12,6 +12,7 @@ func TestFeatures(t *testing.T) {
 	// Get the absolute path to the features directory
 	// When running from project root, use "tests/features", when from features dir, use "."
 	workDir, _ := os.Getwd()
+	t.Log("Working directory:", workDir)
 	var featuresPath string
 	if filepath.Base(workDir) == "features" {
 		featuresPath = "."

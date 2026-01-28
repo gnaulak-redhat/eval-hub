@@ -65,7 +65,7 @@ make clean              # Remove build artifacts and coverage files
 ### Project Structure
 This project follows the standard Go project layout with a clear separation between public entry points (`cmd/`) and private application code (`internal/`).
 
-- **cmd/eval_hub/** - Main application entry point with configuration (server.yaml)
+- **cmd/eval_hub/** - Main application entry point 
 - **internal/config/** - Configuration loading with Viper
 - **internal/constants/** - Shared constants (log field names, etc.)
 - **internal/executioncontext/** - ExecutionContext pattern implementation
@@ -99,15 +99,15 @@ This pattern enables:
 #### Two-Tier Configuration System
 Configuration uses Viper with a sophisticated loading strategy:
 
-1. **server.yaml** (config/server.yaml) - Default configuration loaded first
-2. **config.yaml** (optional, searched in `.` and `..`) - Cluster-specific overrides
+1. **config.yaml** (config/config.yaml) - Configuration file
+
 
 Configuration supports:
 - **Environment variable mapping**: Define in `env.mappings` (e.g., `PORT` → `service.port`)
 - **Secrets from files**: Define in `secrets.mappings` with `secrets.dir` (e.g., `/tmp/db_password` → `database.password`)
-- Default values cascade from server.yaml to config.yaml to env vars to secrets
+- Values cascade from config.yaml to env vars to secrets
 
-Example from server.yaml:
+Example from config.yaml:
 ```yaml
 env:
   mappings:
@@ -184,8 +184,7 @@ Main function (cmd/eval_hub/main.go) implements graceful shutdown:
 
 #### Configuration Discovery
 When running locally:
-- Loads `config/server.yaml` as defaults
-- Searches for optional `config.yaml` in current directory and parent (errors ignored)
+- Loads `config/config.yaml`
 - Environment variables override file config
 - Secrets from files (if directory exists) override everything
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/eval-hub/eval-hub/pkg/api"
 	"github.com/spf13/viper"
 )
 
@@ -47,15 +48,67 @@ func readConfig(logger *slog.Logger, defaultConfigValues *viper.Viper, name stri
 	return configValues, err
 }
 
+func loadProvider(logger *slog.Logger, file string) (*api.ProviderResource, error) {
+	providerConfig := &api.ProviderResource{}
+	configValues, err := readConfig(logger, nil, file, "yaml", "config/providers", "./config/providers", "../../config/providers")
+	if err != nil {
+		return nil, err
+	}
+
+	if err := configValues.Unmarshal(&providerConfig); err != nil {
+		return nil, err
+	}
+	return providerConfig, nil
+}
+
+func scanFolders(logger *slog.Logger, dirs ...string) ([]os.DirEntry, error) {
+	for _, dir := range dirs {
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			logger.Warn("No providers found in the directory", "directory", dir)
+			continue
+		}
+		return files, nil
+	}
+	return nil, fmt.Errorf("No files found in the directories")
+}
+
+func LoadProviderConfigs(logger *slog.Logger) (map[string]*api.ProviderResource, error) {
+	providerConfigs := make(map[string]*api.ProviderResource)
+	files, err := scanFolders(logger, "./config/providers", "../../config/providers")
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".yaml") {
+			continue
+		}
+		name := strings.TrimSuffix(file.Name(), ".yaml")
+		providerConfig, err := loadProvider(logger, name)
+		if err != nil {
+			return nil, err
+		}
+
+		if providerConfig.ProviderID == "" {
+			logger.Warn("Provider config missing provider_id, skipping", "file", file.Name())
+			continue
+		}
+
+		providerConfigs[providerConfig.ProviderID] = providerConfig
+		logger.Info("Provider loaded", "provider_id", providerConfig.ProviderID)
+	}
+
+	return providerConfigs, nil
+}
+
 // LoadConfig loads configuration using a two-tier system with Viper. This implements
 // a sophisticated loading strategy that supports cascading configuration values and
 // multiple sources.
 //
 // Configuration loading order (later sources override earlier ones):
-//  1. server.yaml (config/server.yaml) - Default configuration loaded first
-//  2. config.yaml (optional, searched in "." and "..") - Cluster-specific overrides
-//  3. Environment variables - Mapped via env.mappings configuration
-//  4. Secrets from files - Mapped via secrets.mappings with secrets.dir
+//  1. config.yaml (config/config.yaml) - Configuration loaded first
+//  2. Environment variables - Mapped via env.mappings configuration
+//  3. Secrets from files - Mapped via secrets.mappings with secrets.dir
 //
 // Configuration supports:
 //   - Environment variable mapping: Define in env.mappings (e.g., PORT → service.port)
@@ -82,18 +135,10 @@ func readConfig(logger *slog.Logger, defaultConfigValues *viper.Viper, name stri
 //   - *Config: The loaded configuration with all sources applied
 //   - error: An error if configuration cannot be loaded or is invalid
 func LoadConfig(logger *slog.Logger, version string, build string, buildDate string) (*Config, error) {
-	// first load the server.yaml as the default config (the server.yaml from config)
-	defaultConfigValues, err := readConfig(logger, nil, "server", "yaml", "config", "./config", "../../config")
+	configValues, err := readConfig(logger, nil, "config", "yaml", "config", "./config", "../../config")
 	if err != nil {
 		return nil, err
 	}
-
-	configValues, err := readConfig(logger, defaultConfigValues, "config", "yaml", ".", "..")
-	// TODO: in production we need to find this file
-	// for now we ignre this error because there is no extra config when running locally
-	// if err != nil {
-	//	 return nil, err
-	// }
 
 	// now load the cluster config if found
 	// set up the secrets from the secrets directory
