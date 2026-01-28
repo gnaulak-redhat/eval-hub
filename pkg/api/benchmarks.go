@@ -3,6 +3,7 @@ package api
 // Benchmark represents benchmark specification
 type BenchmarkResource struct {
 	BenchmarkId string   `mapstructure:"benchmark_id" yaml:"benchmark_id" json:"benchmark_id"`
+	ProviderId  *string  `mapstructure:"provider_id" yaml:"provider_id" json:"provider_id,omitempty"`
 	Name        string   `mapstructure:"name" yaml:"name" json:"name"`
 	Description string   `mapstructure:"description" yaml:"description" json:"description"`
 	Category    string   `mapstructure:"category" yaml:"category" json:"category"`
