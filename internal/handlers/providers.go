@@ -37,6 +37,7 @@ func (h *Handlers) HandleGetProvider(ctx *executioncontext.ExecutionContext, w h
 	p, found := ctx.ProviderConfigs[id]
 	if !found {
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"message":     "Provider not found",
 			"provider_id": id,
