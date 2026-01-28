@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -175,8 +176,48 @@ func (tc *scenarioConfig) checkHealthEndpoint() error {
 }
 
 func (tc *scenarioConfig) iSendARequestTo(method, path string) error {
+	return tc.iSendARequestToWithBody(method, path, "")
+}
+
+func (tc *scenarioConfig) findFile(fileName string) (string, error) {
+	file := filepath.Join("test_data", fileName)
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		path, _ := os.Getwd()
+		return "", fmt.Errorf("test file %s not found in directory %s", fileName, path)
+	}
+	return file, nil
+}
+
+func (tc *scenarioConfig) getFile(fileName string) (io.ReadCloser, error) {
+	filePath, err := tc.findFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func (tc *scenarioConfig) getRequestBody(body string) (io.Reader, error) {
+	if body == "" {
+		return nil, nil
+	}
+	// this can be an inline body or a test file
+	if strings.HasPrefix(body, "file:/") {
+		return tc.getFile(strings.TrimPrefix(body, "file:/"))
+	}
+	return strings.NewReader(body), nil
+}
+
+func (tc *scenarioConfig) iSendARequestToWithBody(method, path, body string) error {
 	url := fmt.Sprintf("%s%s", tc.apiFeature.baseURL.String(), path)
-	req, err := http.NewRequest(method, url, nil)
+	entity, err := tc.getRequestBody(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(method, url, entity)
 	if err != nil {
 		return err
 	}
@@ -330,12 +371,20 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.After(tc.assetCleanup)
 
 	ctx.Step(`^the service is running$`, tc.theServiceIsRunning)
-	ctx.Step(`^I send a (GET|POST|PUT|DELETE) request to "([^"]*)"$`, tc.iSendARequestTo)
-	ctx.Step(`^the response status should be (\d+)$`, tc.theResponseStatusShouldBe)
+	ctx.Step(`^I send a (GET|DELETE|POST) request to "([^"]*)"$`, tc.iSendARequestTo)
+	ctx.Step(`^I send a (POST|PUT|PATCH) request to "([^"]*)" with body "([^"]*)"$`, tc.iSendARequestToWithBody)
+	ctx.Step(`^the response code should be (\d+)$`, tc.theResponseStatusShouldBe)
 	ctx.Step(`^the response should be JSON$`, tc.theResponseShouldBeJSON)
 	ctx.Step(`^the response should contain "([^"]*)" with value "([^"]*)"$`, tc.theResponseShouldContainWithValue)
 	ctx.Step(`^the response should contain "([^"]*)"$`, tc.theResponseShouldContain)
 	ctx.Step(`^the response should contain Prometheus metrics$`, tc.theResponseShouldContainPrometheusMetrics)
 	ctx.Step(`^the metrics should include "([^"]*)"$`, tc.theMetricsShouldInclude)
 	ctx.Step(`^the metrics should show request count for "([^"]*)"$`, tc.theMetricsShouldShowRequestCountFor)
+	// steps for entities
+	//ctx.Step(`^the entity should be created with ID "([^"]*)"$`, tc.theEntityShouldBeCreatedWithID)
+	//ctx.Step(`^the entity should be deleted with ID "([^"]*)"$`, tc.theEntityShouldBeDeletedWithID)
+	//ctx.Step(`^the entity should be updated with ID "([^"]*)"$`, tc.theEntityShouldBeUpdatedWithID)
+	//ctx.Step(`^the entity should be retrieved with ID "([^"]*)"$`, tc.theEntityShouldBeRetrievedWithID)
+	//ctx.Step(`^the entity should be listed with ID "([^"]*)"$`, tc.theEntityShouldBeListedWithID)
+	//ctx.Step(`^the entity should be counted with ID "([^"]*)"$`, tc.theEntityShouldBeCountedWithID)
 }

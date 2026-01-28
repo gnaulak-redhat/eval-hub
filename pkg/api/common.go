@@ -15,7 +15,7 @@ import "time"
 // PatchOp represents the patch operation enum
 type PatchOp string
 
-// The tenant that provide scoping for objests stored in the database but not limited to the database.
+// The tenant that provides scoping for objects stored in the database but not limited to the database.
 type Tenant string
 
 const (
