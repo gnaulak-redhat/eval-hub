@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/eval-hub/eval-hub/pkg/api"
@@ -69,20 +70,30 @@ func loadProvider(logger *slog.Logger, file string) (api.ProviderResource, error
 }
 
 func scanFolders(logger *slog.Logger, dirs ...string) ([]os.DirEntry, error) {
+	var dirsChecked []string
 	for _, dir := range dirs {
-		files, err := os.ReadDir(dir)
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			logger.Error("Failed to get absolute path for provider config directory", "directory", dir, "error", err.Error())
+			continue
+		}
+		dirsChecked = append(dirsChecked, absDir)
+		files, err := os.ReadDir(absDir)
 		if err != nil {
 			continue
 		}
 		return files, nil
 	}
-	logger.Warn("No providers found", "directories", dirs)
+	logger.Warn("No providers found", "directories", dirsChecked)
 	return []os.DirEntry{}, nil
 }
 
-func LoadProviderConfigs(logger *slog.Logger) (map[string]api.ProviderResource, error) {
+func LoadProviderConfigs(logger *slog.Logger, dirs ...string) (map[string]api.ProviderResource, error) {
+	if len(dirs) == 0 {
+		dirs = []string{"config/providers", "./config/providers", "../../config/providers", "../../../config/providers"}
+	}
 	providerConfigs := make(map[string]api.ProviderResource)
-	files, err := scanFolders(logger, "config/providers", "./config/providers", "../../config/providers")
+	files, err := scanFolders(logger, dirs...)
 	if err != nil {
 		return providerConfigs, err
 	}
@@ -141,8 +152,11 @@ func LoadProviderConfigs(logger *slog.Logger) (map[string]api.ProviderResource, 
 // Returns:
 //   - *Config: The loaded configuration with all sources applied
 //   - error: An error if configuration cannot be loaded or is invalid
-func LoadConfig(logger *slog.Logger, version string, build string, buildDate string) (*Config, error) {
-	configValues, err := readConfig(logger, "config", "yaml", "config", "./config", "../../config")
+func LoadConfig(logger *slog.Logger, version string, build string, buildDate string, dirs ...string) (*Config, error) {
+	if len(dirs) == 0 {
+		dirs = []string{"config", "./config", "../../config"}
+	}
+	configValues, err := readConfig(logger, "config", "yaml", dirs...)
 	if err != nil {
 		return nil, err
 	}

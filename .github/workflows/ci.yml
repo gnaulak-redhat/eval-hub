@@ -34,15 +34,9 @@ jobs:
     - name: Run vet
       run: make vet
 
-    - name: Run unit tests with coverage
+    - name: Run all tests (unit and integration) with coverage
       run: |
         make test-all-coverage
-        # why are these here as we upload the .out files?
-        # go tool cover -func=bin/coverage.out -o=bin/coverage.txt
-        # go tool cover -func=bin/coverage-fvt.out -o=bin/coverage-fvt.txt
-
-    - name: Run FVT tests
-      run: make test-fvt
 
     - name: Upload coverage reports to Codecov
       continue-on-error: ${{ github.actor == 'dependabot[bot]' }}  # Don't fail CI on Dependabot PRs since they can't access secrets

@@ -28,7 +28,8 @@ func NewLogger() (*slog.Logger, ShutdownFunc, error) {
 		return nil, nil, err
 	}
 	f := newShutdownFunc(zapLog.Core())
-	return slog.New(zapslog.NewHandler(zapLog.Core())), f, nil
+	// we want the caller in our logs for debugging purposes, for now this is always set to true
+	return slog.New(zapslog.NewHandler(zapLog.Core(), zapslog.WithCaller(true))), f, nil
 }
 
 func FallbackLogger() *slog.Logger {

@@ -296,10 +296,6 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.httpServer == nil {
-		return nil
-	}
-
 	s.logger.Info("Shutting down server gracefully...")
 	// do we need to flush the logs?
 

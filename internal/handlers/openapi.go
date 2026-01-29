@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,15 +28,23 @@ func (h *Handlers) HandleOpenAPI(ctx *executioncontext.ExecutionContext, w http.
 	// Find the OpenAPI spec file relative to the working directory
 	// Try multiple possible locations
 	possiblePaths := []string{
-		"api/openapi.yaml",
-		"../../api/openapi.yaml",
 		filepath.Join("api", "openapi.yaml"),
+		filepath.Join("..", "api", "openapi.yaml"),
+		filepath.Join("..", "..", "api", "openapi.yaml"),
+		filepath.Join("..", "..", "..", "api", "openapi.yaml"),
 	}
 
+	var paths []string
 	var spec []byte
 	var err error
 	for _, path := range possiblePaths {
-		spec, err = os.ReadFile(path)
+		absPath, aerr := filepath.Abs(path)
+		if aerr != nil {
+			ctx.Logger.Error("Failed to get absolute path for OpenAPI spec", "path", path, "error", aerr.Error())
+			continue
+		}
+		paths = append(paths, absPath)
+		spec, err = os.ReadFile(absPath)
 		if err == nil {
 			break
 		}
@@ -47,12 +56,13 @@ func (h *Handlers) HandleOpenAPI(ctx *executioncontext.ExecutionContext, w http.
 		if exePath != "" {
 			exeDir := filepath.Dir(exePath)
 			specPath := filepath.Join(exeDir, "api", "openapi.yaml")
+			paths = append(paths, specPath)
 			spec, err = os.ReadFile(specPath)
 		}
 	}
 
 	if err != nil {
-		http.Error(w, "Failed to read OpenAPI spec: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to read OpenAPI spec in paths %s : %s", strings.Join(paths, ", "), err.Error()), http.StatusInternalServerError)
 		return
 	}
 

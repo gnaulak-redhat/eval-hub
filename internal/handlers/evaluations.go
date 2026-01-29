@@ -89,11 +89,17 @@ func (h *Handlers) HandleCancelEvaluation(ctx *executioncontext.ExecutionContext
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "Evaluation cancellation not yet implemented",
-	})
+	// Extract ID from path
+	pathParts := strings.Split(ctx.Request.URI(), "/")
+	id := pathParts[len(pathParts)-1]
+
+	err := h.storage.DeleteEvaluationJob(ctx, id, true)
+	if err != nil {
+		h.errorResponse(ctx, w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.successResponse(ctx, w, nil, http.StatusNoContent)
 }
 
 // HandleGetEvaluationSummary handles GET /api/v1/evaluations/jobs/{id}/summary

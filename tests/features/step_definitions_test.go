@@ -111,7 +111,7 @@ func (a *apiFeature) startLocalServer(port int) error {
 	logger.Info("Storage created.")
 
 	// set up the provider configs
-	providerConfigs, err := config.LoadProviderConfigs(logger)
+	providerConfigs, err := config.LoadProviderConfigs(logger, "../../../config/providers", "../../../../config/providers", "../../../../../config/providers")
 	if err != nil {
 		// we do this as no point trying to continue
 		return fmt.Errorf("failed to load provider configs: %w", err)

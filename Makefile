@@ -33,7 +33,6 @@ clean: ## Remove build artifacts
 	@echo "Cleaning..."
 	@rm -rf $(BIN_DIR)
 	@rm -f $(BINARY_NAME)
-	@rm -f coverage.out coverage.html
 	@go clean ${CLEAN_OPTS}
 	@echo "Clean complete"
 
@@ -91,14 +90,14 @@ test-all: test test-fvt ## Run all tests (unit + FVT)
 test-coverage: ## Run unit tests with coverage
 	@echo "Running unit tests with coverage..."
 	@mkdir -p $(BIN_DIR)
-	@go test -v -coverprofile=$(BIN_DIR)/coverage.out ./internal/...
+	@go test -v -race -coverprofile=$(BIN_DIR)/coverage.out -covermode=atomic ./internal/... ./cmd/...
 	@go tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "Coverage report generated: $(BIN_DIR)/coverage.html"
 
 test-fvt-coverage: ## Run integration (FVT) tests with coverage
 	@echo "Running integration (FVT) tests with coverage..."
 	@mkdir -p $(BIN_DIR)
-	@go test -v -coverprofile=$(BIN_DIR)/coverage-fvt.out ./tests/features/...
+	@go test -v -race -coverprofile=$(BIN_DIR)/coverage-fvt.out -covermode=atomic./tests/features/...
 	@go tool cover -html=$(BIN_DIR)/coverage-fvt.out -o $(BIN_DIR)/coverage-fvt.html
 	@echo "Coverage report generated: $(BIN_DIR)/coverage-fvt.html"
 
