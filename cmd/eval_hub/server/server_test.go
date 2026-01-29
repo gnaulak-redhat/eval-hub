@@ -99,7 +99,7 @@ func TestServerSetupRoutes(t *testing.T) {
 		{http.MethodDelete, "/api/v1/evaluations/collections/test-collection", http.StatusOK, ""},
 		// Providers
 		{http.MethodGet, "/api/v1/evaluations/providers", http.StatusOK, ""},
-		// TODO this is failing - need to fix {http.MethodGet, "/api/v1/evaluations/providers/garak", http.StatusOK, ""},
+		{http.MethodGet, "/api/v1/evaluations/providers/garak", http.StatusOK, ""},
 		// System metrics
 		{http.MethodGet, "/api/v1/metrics/system", http.StatusOK, ""},
 		// Error cases
