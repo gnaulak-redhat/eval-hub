@@ -1,0 +1,170 @@
+name: Build and Publish eval-hub-server
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-binaries:
+    name: Build Go binaries
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            output: eval-hub-linux-amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            output: eval-hub-linux-arm64
+
+          # macOS
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            output: eval-hub-darwin-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            output: eval-hub-darwin-arm64
+
+          # Windows
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            output: eval-hub-windows-amd64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -o ${{ matrix.output }} -ldflags="-s -w" ./cmd/eval_hub
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.output }}
+          retention-days: 1
+
+  build-wheels:
+    name: Build Python wheels
+    needs: build-binaries
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: manylinux
+            arch: x86_64
+            binary-pattern: "binary-linux-amd64"
+          - os: ubuntu-latest
+            platform: manylinux
+            arch: aarch64
+            binary-pattern: "binary-linux-arm64"
+          - os: macos-latest
+            platform: macosx
+            arch: x86_64
+            binary-pattern: "binary-darwin-amd64"
+          - os: macos-latest
+            platform: macosx
+            arch: arm64
+            binary-pattern: "binary-darwin-arm64"
+          - os: windows-latest
+            platform: win
+            arch: amd64
+            binary-pattern: "binary-windows-amd64"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel setuptools
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ matrix.binary-pattern }}
+          path: python-server/evalhub_server/binaries/
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: |
+          ls -la python-server/evalhub_server/binaries/
+        shell: bash
+
+      - name: Set platform tag
+        id: platform
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "manylinux" ]; then
+            echo "tag=manylinux_2_17_${{ matrix.arch }}" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "macosx" ]; then
+            if [ "${{ matrix.arch }}" = "arm64" ]; then
+              echo "tag=macosx_11_0_arm64" >> $GITHUB_OUTPUT
+            else
+              echo "tag=macosx_10_9_x86_64" >> $GITHUB_OUTPUT
+            fi
+          elif [ "${{ matrix.platform }}" = "win" ]; then
+            echo "tag=win_amd64" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build wheel
+        working-directory: python-server
+        env:
+          WHEEL_PLATFORM: ${{ steps.platform.outputs.tag }}
+        run: |
+          python -m build --wheel
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.platform }}-${{ matrix.arch }}
+          path: python-server/dist/*.whl
+          retention-days: 7
+
+  publish:
+    name: Publish to PyPI
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/eval-hub-server
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist/
+          merge-multiple: true
+
+      - name: List wheels
+        run: ls -la dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
