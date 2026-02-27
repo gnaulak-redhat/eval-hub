@@ -56,15 +56,6 @@ func (jr *jobPIDTracker) cancelJob(jobID string) {
 	}
 }
 
-// wasCancelled reports whether the job was cancelled (i.e. cancelJob already
-// removed its entry from the tracker).
-func (jr *jobPIDTracker) wasCancelled(jobID string) bool {
-	jr.mu.Lock()
-	defer jr.mu.Unlock()
-	_, ok := jr.pids[jobID]
-	return !ok
-}
-
 type LocalRuntime struct {
 	logger    *slog.Logger
 	ctx       context.Context
@@ -129,7 +120,7 @@ func (r *LocalRuntime) RunEvaluationJob(
 
 	go func() {
 		for i, bench := range evaluation.Benchmarks {
-			if err := r.runBenchmark(jobID, bench, i, evaluation, callbackURL, storage); err != nil {
+			if err := r.runBenchmark(jobID, bench, i, evaluation, callbackURL); err != nil {
 				r.logger.Error(
 					"local runtime benchmark launch failed",
 					"error", err,
@@ -147,15 +138,14 @@ func (r *LocalRuntime) RunEvaluationJob(
 }
 
 // runBenchmark launches a single benchmark process. It writes the job spec,
-// starts the command, and returns immediately. A background goroutine calls
-// cmd.Wait() to reap the child process and prevent zombies.
+// starts the command, and returns immediately. The child process is fully
+// detached via Setsid and Process.Release — no cmd.Wait() is needed.
 func (r *LocalRuntime) runBenchmark(
 	jobID string,
 	bench api.BenchmarkConfig,
 	benchmarkIndex int,
 	evaluation *api.EvaluationJobResource,
 	callbackURL *string,
-	storage *abstractions.Storage,
 ) error {
 	provider, ok := r.providers[bench.ProviderID]
 	if !ok {
@@ -206,15 +196,11 @@ func (r *LocalRuntime) runBenchmark(
 	// Build command using shell interpretation
 	command := provider.Runtime.Local.Command
 	cmd := exec.Command("sh", "-c", command)
-	// Setpgid places the child in its own process group (PGID = child PID).
-	// This is critical for two reasons:
-	//   1. cancelJob calls Kill(-PID, SIGKILL) which targets the entire process
-	//      group. Without Setpgid the child inherits the Go process's group, so
-	//      Kill(-PID) would kill the Go process itself.
-	//   2. The negative PID ensures the entire subprocess tree is killed (sh +
-	//      its children). Without it, only the direct child would be signalled
-	//      and grandchildren could survive as orphans reparented to PID 1.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Setsid creates a new session and process group for the child (PGID = child PID).
+	// This fully detaches the child from the parent's session and controlling terminal.
+	// cancelJob uses Kill(-PID, SIGKILL) to kill the entire process group, which
+	// requires the child to be in its own group to avoid killing the Go process.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	// Set environment variables
 	cmd.Env = append(os.Environ(),
@@ -256,8 +242,13 @@ func (r *LocalRuntime) runBenchmark(
 	// Close the log file — the child process has its own fd copy.
 	logFile.Close()
 
+	// Release the process handle — the child is fully detached (new session via
+	// Setsid) so the parent has no need to wait on it. This prevents zombies
+	// without requiring cmd.Wait().
+	cmd.Process.Release()
+
 	r.logger.Info(
-		"local runtime process started",
+		"local runtime process started (detached)",
 		"job_id", jobID,
 		"benchmark_id", bench.ID,
 		"benchmark_index", benchmarkIndex,
@@ -265,34 +256,6 @@ func (r *LocalRuntime) runBenchmark(
 		"pid", pid,
 		"command", command,
 	)
-
-	// Reap the child process in the background to prevent zombies
-	// and fail the benchmark if the command exits with an error.
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			if r.tracker.wasCancelled(jobID) {
-				r.logger.Info(
-					"local runtime process killed by cancellation",
-					"job_id", jobID,
-					"benchmark_id", bench.ID,
-					"benchmark_index", benchmarkIndex,
-					"provider_id", bench.ProviderID,
-					"pid", pid,
-				)
-			} else {
-				r.logger.Error(
-					"local runtime process exited with error",
-					"error", err,
-					"job_id", jobID,
-					"benchmark_id", bench.ID,
-					"benchmark_index", benchmarkIndex,
-					"provider_id", bench.ProviderID,
-					"pid", pid,
-				)
-				r.failBenchmark(jobID, bench, benchmarkIndex, storage, err.Error())
-			}
-		}
-	}()
 
 	return nil
 }

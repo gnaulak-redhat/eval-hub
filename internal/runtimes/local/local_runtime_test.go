@@ -452,47 +452,6 @@ func TestRunEvaluationJobMissingLocalCommand(t *testing.T) {
 	}
 }
 
-func TestRunEvaluationJobProcessFailure(t *testing.T) {
-	providerID := "provider-1"
-	evaluation := sampleEvaluation(providerID)
-	cleanupDir(t, "job-1")
-
-	providers := sampleLocalProviders(providerID, "exit 1")
-
-	tctx := testContext(t)
-	logger := discardLogger()
-	statusCh := make(chan *api.StatusEvent, 1)
-	storage := &fakeStorage{logger: logger, ctx: tctx, runStatusChan: statusCh}
-	var store abstractions.Storage = storage
-
-	rt := &LocalRuntime{
-		logger:    logger,
-		ctx:       tctx,
-		providers: providers,
-		tracker:   newTracker(),
-	}
-
-	err := rt.RunEvaluationJob(evaluation, &store)
-	if err != nil {
-		t.Fatalf("expected no synchronous error, got %v", err)
-	}
-
-	select {
-	case runStatus := <-statusCh:
-		if runStatus == nil {
-			t.Fatal("expected run status, got nil")
-		}
-		if runStatus.BenchmarkStatusEvent.Status != api.StateFailed {
-			t.Fatalf("expected status %q, got %q", api.StateFailed, runStatus.BenchmarkStatusEvent.Status)
-		}
-		if runStatus.BenchmarkStatusEvent.ID != "bench-1" {
-			t.Fatalf("expected benchmark ID %q, got %q", "bench-1", runStatus.BenchmarkStatusEvent.ID)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for failed benchmark status update")
-	}
-}
-
 func TestRunEvaluationJobCancelledNoFailure(t *testing.T) {
 	providerID := "provider-1"
 	evaluation := sampleEvaluation(providerID)
