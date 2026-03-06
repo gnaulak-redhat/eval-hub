@@ -1635,10 +1635,18 @@ func (tc *testContext) instanceNameFromServiceAccount() (string, error) {
 		return "", fmt.Errorf("no current Job")
 	}
 	serviceAccount := tc.currentJob.Spec.Template.Spec.ServiceAccountName
-	if strings.HasSuffix(serviceAccount, "-jobs") {
-		return strings.TrimSuffix(serviceAccount, "-jobs"), nil
+	// serviceAccountNameSuffix is "-job"; SA format is "{instanceName}-{namespace}-job"
+	const serviceAccountNameSuffix = "-job"
+	if !strings.HasSuffix(serviceAccount, serviceAccountNameSuffix) {
+		return "", fmt.Errorf("unable to derive instance name from serviceAccountName %q", serviceAccount)
 	}
-	return "", fmt.Errorf("unable to derive instance name from serviceAccountName %q", serviceAccount)
+	trimmed := strings.TrimSuffix(serviceAccount, serviceAccountNameSuffix)
+	// trimmed is "{instanceName}-{namespace}", remove the trailing "-{namespace}"
+	idx := strings.LastIndex(trimmed, "-")
+	if idx <= 0 {
+		return "", fmt.Errorf("unable to derive instance name from serviceAccountName %q", serviceAccount)
+	}
+	return trimmed[:idx], nil
 }
 
 // ============================================================================
