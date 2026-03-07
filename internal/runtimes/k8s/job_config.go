@@ -83,7 +83,7 @@ func buildJobConfig(evaluation *api.EvaluationJobResource, provider *api.Provide
 		return nil, fmt.Errorf("%s is required", serviceURLEnv)
 	}
 
-	namespace := resolveNamespace("")
+	namespace := resolveNamespace(string(evaluation.Resource.Tenant))
 	spec, err := shared.BuildJobSpec(evaluation, provider.Resource.ID, benchmarkConfig, benchmarkIndex, &serviceURL)
 	if err != nil {
 		return nil, err
