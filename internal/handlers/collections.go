@@ -18,7 +18,7 @@ import (
 
 // HandleListCollections handles GET /api/v1/evaluations/collections
 func (h *Handlers) HandleListCollections(ctx *executioncontext.ExecutionContext, req http_wrappers.RequestWrapper, w http_wrappers.ResponseWrapper) {
-	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx)
+	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx).WithTenant(ctx.Tenant).WithOwner(ctx.User)
 
 	logging.LogRequestStarted(ctx)
 
@@ -57,7 +57,7 @@ func (h *Handlers) HandleListCollections(ctx *executioncontext.ExecutionContext,
 
 // HandleCreateCollection handles POST /api/v1/evaluations/collections
 func (h *Handlers) HandleCreateCollection(ctx *executioncontext.ExecutionContext, req http_wrappers.RequestWrapper, w http_wrappers.ResponseWrapper) {
-	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx)
+	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx).WithTenant(ctx.Tenant).WithOwner(ctx.User)
 
 	logging.LogRequestStarted(ctx)
 
@@ -94,7 +94,7 @@ func (h *Handlers) HandleCreateCollection(ctx *executioncontext.ExecutionContext
 
 // HandleGetCollection handles GET /api/v1/evaluations/collections/{collection_id}
 func (h *Handlers) HandleGetCollection(ctx *executioncontext.ExecutionContext, req http_wrappers.RequestWrapper, w http_wrappers.ResponseWrapper) {
-	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx)
+	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx).WithTenant(ctx.Tenant).WithOwner(ctx.User)
 	logging.LogRequestStarted(ctx)
 
 	// Extract ID from path
@@ -115,7 +115,7 @@ func (h *Handlers) HandleGetCollection(ctx *executioncontext.ExecutionContext, r
 
 // HandleUpdateCollection handles PUT /api/v1/evaluations/collections/{collection_id}
 func (h *Handlers) HandleUpdateCollection(ctx *executioncontext.ExecutionContext, req http_wrappers.RequestWrapper, w http_wrappers.ResponseWrapper) {
-	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx)
+	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx).WithTenant(ctx.Tenant).WithOwner(ctx.User)
 
 	logging.LogRequestStarted(ctx)
 
@@ -155,7 +155,7 @@ func (h *Handlers) HandleUpdateCollection(ctx *executioncontext.ExecutionContext
 
 // HandlePatchCollection handles PATCH /api/v1/evaluations/collections/{collection_id}
 func (h *Handlers) HandlePatchCollection(ctx *executioncontext.ExecutionContext, req http_wrappers.RequestWrapper, w http_wrappers.ResponseWrapper) {
-	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx)
+	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx).WithTenant(ctx.Tenant).WithOwner(ctx.User)
 
 	logging.LogRequestStarted(ctx)
 
@@ -204,7 +204,7 @@ func (h *Handlers) HandlePatchCollection(ctx *executioncontext.ExecutionContext,
 
 // HandleDeleteCollection handles DELETE /api/v1/evaluations/collections/{collection_id}
 func (h *Handlers) HandleDeleteCollection(ctx *executioncontext.ExecutionContext, req http_wrappers.RequestWrapper, w http_wrappers.ResponseWrapper) {
-	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx)
+	storage := h.storage.WithLogger(ctx.Logger).WithContext(ctx.Ctx).WithTenant(ctx.Tenant).WithOwner(ctx.User)
 	logging.LogRequestStarted(ctx)
 
 	// Extract ID from path
