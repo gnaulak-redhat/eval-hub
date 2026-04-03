@@ -25,50 +25,54 @@ This project and everyone participating in it is governed by our Code of Conduct
 Eval Hub is an API REST server that serves as a routing and orchestration layer for evaluation backends. It supports flexible deployment options from local development to production Kubernetes/OpenShift clusters. Before contributing, familiarize yourself with:
 
 - **Architecture**: Read the [README.md](README.md) for project overview
-- **API Documentation**: Check [API.md](API.md) for endpoint specifications
+- **API Documentation**: See the bundled [OpenAPI spec](./docs/openapi.yaml) (generated from [docs/src/openapi.yaml](./docs/src/openapi.yaml)) or the [live docs](https://eval-hub.github.io/eval-hub/) for endpoint specifications
 - **Deployment Options**: Understand local development, Podman, and Kubernetes/OpenShift deployment models
 
 ### Prerequisites
 
 **Required for All Development:**
+
 - Go 1.25.0+
 - [Make](https://www.gnu.org/software/make/) for build automation
 - Git
 
 **Optional for Container Testing:**
+
 - Podman (for containerization testing)
 
 **Optional for Cluster Integration Testing:**
+
 - Access to a Kubernetes/OpenShift cluster
 - kubectl or oc CLI tools
 
 ## Development Setup
 
 1. **Fork and Clone**
+
    ```bash
    git clone https://github.com/your-username/eval-hub.git
    cd eval-hub
    ```
 
 2. **Install Dependencies**
+
    ```bash
    # Download and tidy Go dependencies
    make install-deps
    ```
 
 3. **Configure Environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your local configuration
-   # Or edit config/config.yaml directly
-   ```
+
+   Local settings are layered from [config/config.yaml](config/config.yaml): you can set values directly in that file; override them with environment variables listed under the `env_mappings` key (each entry maps an env var name to a config path, for example `PORT` → `service.port`); and load sensitive values from files under `secrets.dir` using `secrets.mappings` (each entry maps a secret file basename in that directory to a config path). The repository does not include a committed `.env` file; use exported environment variables, secret files you place under `secrets.dir`, and/or edits to `config/config.yaml`, depending on what you need for local work or a cluster.
 
 4. **Install Pre-commit Hooks**
+
    ```bash
    pre-commit install
    ```
 
 5. **Verify Setup**
+
    ```bash
    # Run tests to verify everything works
    make test
@@ -107,6 +111,7 @@ We welcome contributions in various forms:
 ### 1. Create an Issue
 
 Before starting work, create an issue to discuss:
+
 - **Bug Reports**: Describe the problem with reproduction steps
 - **Feature Requests**: Explain the use case and proposed solution
 - **Architectural Changes**: See special requirements below
@@ -115,6 +120,7 @@ Before starting work, create an issue to discuss:
 #### Architectural Changes
 
 **Definition**: Changes that affect system design, component interactions, or technology choices, including:
+
 - New backend executors or evaluation frameworks
 - API endpoint additions or modifications
 - Database schema changes
@@ -123,6 +129,7 @@ Before starting work, create an issue to discuss:
 - Performance or security architectural decisions
 
 **Required Process**:
+
 1. **Create Issue**: Use `kind/architecture` label
 2. **Discussion**: Allow community input and maintainer feedback in the issue
 3. **Approval**: Maintainers add `status/accepted` label after discussion
@@ -153,6 +160,7 @@ git checkout -b fix/issue-description
 ### 4. Commit Guidelines
 
 Use conventional commits:
+
 ```bash
 # Format: type(scope): description
 git commit -m "feat(api): add collection-based evaluation endpoint"
@@ -163,7 +171,7 @@ git commit -m "test(integration): add MLFlow integration tests"
 
 **Types**: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `ci`, `chore`
 
-PRs targeting `main` will fail CI if any commit message does not follow this format.
+PRs targeting `main` are checked by [commitlint](.github/workflows/commitlint.yml) (Commitizen). Messages should follow this format; CI also allows subjects prefixed with `EH` (project convention) or `Merge` / `merge:` for merge commits.
 
 If you have [pre-commit](https://pre-commit.com) installed, commit messages are also checked locally:
 
@@ -214,30 +222,19 @@ pre-commit run --all-files
 package handlers
 
 import (
-	"encoding/json"
-
-	"github.com/your-org/eval-hub/internal/executioncontext"
+  "github.com/eval-hub/eval-hub/internal/eval_hub/executioncontext"
+  "github.com/eval-hub/eval-hub/internal/eval_hub/http_wrappers"
 )
 
-// EvaluationRequest represents an evaluation request.
-type EvaluationRequest struct {
-	Model          string   `json:"model"`
-	Benchmarks     []string `json:"benchmarks"`
-	ExperimentName string   `json:"experiment_name,omitempty"`
-}
-
-// HandleCreateEvaluation processes an evaluation request.
-// Returns evaluation results or an error.
-func (h *Handlers) HandleCreateEvaluation(ctx *executioncontext.ExecutionContext, w http.ResponseWriter, r *http.Request) {
-	var req EvaluationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ctx.Logger.Error("Failed to decode request", "error", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	ctx.Logger.Info("Processing evaluation", "model", req.Model)
-	// Implementation here
+// HandleCreateEvaluation processes a create-evaluation request.
+// Evaluation handlers use ExecutionContext plus request/response wrappers (not raw http.ResponseWriter).
+func (h *Handlers) HandleCreateEvaluation(
+  ctx *executioncontext.ExecutionContext,
+  req http_wrappers.RequestWrapper,
+  w http_wrappers.ResponseWrapper,
+) {
+  ctx.Logger.Info("Processing evaluation")
+  // Parse body via req, call storage/runtime, write JSON via w
 }
 ```
 
@@ -252,24 +249,24 @@ func (h *Handlers) HandleCreateEvaluation(ctx *executioncontext.ExecutionContext
 ### Running Tests
 
 ```bash
-# Run all tests (unit + FVT)
+# Run unit tests, FVT (godog), and FVT against a running server
 make test-all
 
 # Run only unit tests
 make test
 
-# Run only FVT tests
+# Run only FVT tests (no server)
 make test-fvt
 
 # Generate FVT HTML report (requires Node dev deps)
-npm install
+npm ci
 make fvt-report
 
 # Run tests with coverage
 make test-coverage
 
 # Run specific unit test
-go test -v ./internal/handlers -run TestHandleName
+go test -v ./internal/eval_hub/handlers -run TestHandleName
 
 # Run specific FVT test
 go test -v ./tests/features -run TestFeatureName
@@ -279,46 +276,18 @@ go test -v ./tests/features -run TestFeatureName
 
 1. **New Features**: Must include unit and integration tests
 2. **Bug Fixes**: Must include regression tests
-3. **Coverage**: Maintain >80% test coverage
-4. **Performance**: Include performance tests for critical paths
+3. **Coverage**: Aim for strong coverage; CI uploads reports to Codecov (`codecov.yml`). There is no hard minimum percentage enforced in the workflow today
+4. **Performance**: Include performance tests for critical paths when relevant
 
 ### Test Structure
 
-```go
-package handlers
-
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
-	"github.com/your-org/eval-hub/internal/executioncontext"
-)
-
-func TestHandleCreateEvaluation_Success(t *testing.T) {
-	// Arrange
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations/jobs", nil)
-	w := httptest.NewRecorder()
-
-	// Act
-	handler.HandleCreateEvaluation(ctx, w, req)
-
-	// Assert
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
-	}
-}
-
-func TestHandleCreateEvaluation_Timeout(t *testing.T) {
-	// Test timeout handling
-}
-```
+Use `httptest`, mocks, and test doubles as in `internal/eval_hub/handlers/*_test.go`. Handlers take `RequestWrapper` / `ResponseWrapper`, so tests typically build a `Handlers` instance and drive the wrapper types rather than calling `http.Handler` directly.
 
 ## OpenShift Deployment Testing
 
 EvalHub can be deployed on OpenShift via the [TrustyAI operator](https://github.com/trustyai-explainability/trustyai-service-operator), which is included in [OpenDataHub](https://opendatahub.io/).
 
-### Prerequisites
+### Prerequisites for OpenShift
 
 - Access to an OpenShift cluster
 - Cluster admin permissions or sufficient RBAC permissions
@@ -413,6 +382,7 @@ EvalHub can be deployed on OpenShift via the [TrustyAI operator](https://github.
 ### Additional Resources
 
 For more detailed information on deployment and development workflows:
+
 - [TrustyAI Service Operator](https://github.com/trustyai-explainability/trustyai-service-operator)
 - [OpenDataHub Component Development Guide](https://github.com/opendatahub-io/opendatahub-operator/blob/main/hack/component-dev/README.md)
 - [OpenDataHub Documentation](https://opendatahub.io/)
@@ -422,6 +392,7 @@ For more detailed information on deployment and development workflows:
 ### Before Submitting
 
 1. **Rebase on Main**: Ensure your branch is up-to-date
+
    ```bash
    git checkout main
    git pull origin main
@@ -430,8 +401,9 @@ For more detailed information on deployment and development workflows:
    ```
 
 2. **Run Full Test Suite**
+
    ```bash
-   pytest
+   make clean test-all
    pre-commit run --all-files
    ```
 
@@ -441,30 +413,37 @@ For more detailed information on deployment and development workflows:
 
 When creating a pull request, include:
 
-**Description**
+```markdown
+**What and why**
+
 - Brief summary of changes
 - Link to related issue(s)
 
-**Type of Change**
-- [ ] Bug fix (non-breaking change)
-- [ ] New feature (non-breaking change)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
+Closes #
+
+Assisted-by: Cursor, Claude etc
+
+**Type**
+
+- [ ] feat
+- [ ] fix
+- [ ] docs
+- [ ] refactor / chore
+- [ ] test / ci
 
 **Testing**
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] New tests added for new functionality
 
-**Checklist**
-- [ ] Code follows project style guidelines
-- [ ] Self-review of code completed
-- [ ] Documentation updated
-- [ ] No new warnings introduced
+- [ ] Tests added or updated
+- [ ] Tested manually
+
+**Breaking changes**
+
+If yes, describe migration path. Otherwise delete this section.
+```
 
 ### Review Process
 
-1. **Automated Checks**: CI must pass (tests, linting, type checking)
+1. **Automated Checks**: CI must pass (format check, `go vet`, tests with coverage, API doc generation). For `python-server/`, pre-commit may run mypy when Python files change; Go types are checked by the compiler during build and tests
 2. **OWNERS Assignment**: TBD - Project maintainers will be assigned as reviewers
 3. **Code Review**: Component experts and maintainer approval required
 4. **Testing**: Reviewers may test functionality manually
@@ -532,11 +511,18 @@ For feature requests, include:
 ### Building Documentation
 
 ```bash
-# The OpenAPI specification is maintained in docs/openapi.yaml
-# Update the spec as you add or modify endpoints
+# The OpenAPI spec source of truth is docs/src/openapi.yaml
+# After editing files under docs/src, regenerate public docs (same as CI):
+npm ci
+make documentation
 
-# To view the API documentation locally, you can use any OpenAPI viewer
-# or serve it through the running service at /api/v1/openapi
+# Or only regenerate bundled OpenAPI/HTML without the full documentation target:
+make generate-public-docs
+
+# View the API docs:
+# - Running server: http://localhost:8080/docs
+# - OpenAPI spec: http://localhost:8080/openapi.yaml
+# - Published: https://eval-hub.github.io/eval-hub/
 ```
 
 ## Community
@@ -557,6 +543,7 @@ For feature requests, include:
 ### Recognition
 
 Contributors are recognized in:
+
 - **Release Notes**: Major contributions highlighted
 - **Contributors**: GitHub automatically tracks contributors
 - **Acknowledgments**: Special recognition for significant contributions
