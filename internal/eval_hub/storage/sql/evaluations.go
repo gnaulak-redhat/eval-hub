@@ -502,16 +502,26 @@ func (s *sqlStorage) computeJobTestResult(job *api.EvaluationJobResource, collec
 	weightedAvgJobScore := sumOfWeightedScores / sumOfWeights
 	s.logger.Info("Weighted average job score", "weighted_avg_job_score", weightedAvgJobScore, "sum_of_weighted_scores", sumOfWeightedScores, "sum_of_weights", sumOfWeights)
 	var jobTest *api.EvaluationTest = nil
-	// We set 'test' on the evaluation job only if the pass criteria is defined
-	if job.EvaluationJobConfig.PassCriteria != nil {
-		jobTest = &api.EvaluationTest{
-			Score:     weightedAvgJobScore,
-			Threshold: job.EvaluationJobConfig.PassCriteria.Threshold,
-			Pass:      weightedAvgJobScore >= job.EvaluationJobConfig.PassCriteria.Threshold,
-		}
+
+	threshold := s.getPassCriteriaThreshold(job, collection)
+	jobTest = &api.EvaluationTest{
+		Score:     weightedAvgJobScore,
+		Threshold: threshold,
+		Pass:      weightedAvgJobScore >= threshold,
 	}
 
 	job.Results.Test = jobTest
+}
+
+func (s *sqlStorage) getPassCriteriaThreshold(job *api.EvaluationJobResource, collection *api.CollectionResource) float32 {
+	if job.EvaluationJobConfig.PassCriteria != nil {
+		return job.EvaluationJobConfig.PassCriteria.Threshold
+	}
+	if collection != nil && collection.PassCriteria != nil {
+		return collection.PassCriteria.Threshold
+	}
+	// this is the hard-coded default pass criteria threshold
+	return 0.5
 }
 
 func (s *sqlStorage) computeBenchmarkTestResult(job *api.EvaluationJobResource, benchmarkStatusEvent *api.BenchmarkStatusEvent, collection *api.CollectionResource) *api.BenchmarkTest {
