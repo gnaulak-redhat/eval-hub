@@ -278,13 +278,27 @@ cross-compile: ## Build for specific platform: make cross-compile CROSS_GOOS=lin
 	GOOS=$(CROSS_GOOS) GOARCH=$(CROSS_GOARCH) CGO_ENABLED=0 go build -o $(CROSS_OUTPUT) -ldflags="-s -w ${LDFLAGS_X}" $(CMD_PATH)
 	@echo "Built: $(CROSS_OUTPUT)"
 
-.PHONY: build-all-platforms
-build-all-platforms: ## Build for all supported platforms
+# Per-platform targets for parallel builds (make -j5 build-all-platforms)
+.PHONY: build-platform-linux-amd64 build-platform-linux-arm64 build-platform-darwin-amd64 build-platform-darwin-arm64 build-platform-windows-amd64
+
+build-platform-linux-amd64:
 	@$(MAKE) cross-compile CROSS_GOOS=linux CROSS_GOARCH=amd64
+
+build-platform-linux-arm64:
 	@$(MAKE) cross-compile CROSS_GOOS=linux CROSS_GOARCH=arm64
+
+build-platform-darwin-amd64:
 	@$(MAKE) cross-compile CROSS_GOOS=darwin CROSS_GOARCH=amd64
+
+build-platform-darwin-arm64:
 	@$(MAKE) cross-compile CROSS_GOOS=darwin CROSS_GOARCH=arm64
+
+build-platform-windows-amd64:
 	@$(MAKE) cross-compile CROSS_GOOS=windows CROSS_GOARCH=amd64
+
+.PHONY: build-all-platforms
+build-all-platforms: ## Build for all supported platforms (parallel: make -j5 build-all-platforms)
+	@$(MAKE) -j5 build-platform-linux-amd64 build-platform-linux-arm64 build-platform-darwin-amd64 build-platform-darwin-arm64 build-platform-windows-amd64
 
 # MCP cross-compilation
 MCP_CROSS_OUTPUT = bin/evalhub-mcp-$(CROSS_GOOS)-$(CROSS_GOARCH)$(if $(filter windows,$(CROSS_GOOS)),.exe,)
@@ -346,49 +360,67 @@ install-wheel-tools: venv ## Install Python wheel build tools using uv
 	@echo "Installing wheel build tools via uv..."
 	@uv pip install build wheel setuptools
 
-.PHONY: test-python-server
-test-python-server: ## Run python-server tests (you probably need `build-wheel` first, we use this target as-is in GHA/ci/cd)
-	@echo "Running python-server tests..."
-	@cd python-server && uv run --extra dev pytest
+# Per-platform build isolation directory
+WHEEL_BUILD_DIR = python-server/build-$(CROSS_GOOS)-$(CROSS_GOARCH)
+
+# Determine the binary name to stage (strip platform suffix)
+ifeq ($(CROSS_GOOS),windows)
+    WHEEL_BINARY_NAME = eval-hub.exe
+else
+    WHEEL_BINARY_NAME = eval-hub
+endif
 
 .PHONY: clean-wheels
 clean-wheels: ## Clean Python wheel build artifacts
 	@echo "Cleaning wheel build artifacts..."
 	@rm -rf python-server/dist/
-	@rm -rf python-server/build/
+	@rm -rf python-server/build-*/
 	@rm -rf python-server/*.egg-info
-	@find python-server/evalhub_server/binaries/ -type f ! -name '.gitkeep' -delete
 	@rm -f python-server/VERSION
 
 .PHONY: build-wheel
-build-wheel: ## Build Python wheel: make build-wheel WHEEL_PLATFORM=manylinux_2_17_x86_64 WHEEL_BINARY=eval-hub-linux-amd64
-	@if [ "$${GITHUB_ACTIONS}" != "true" ]; then \
-		$(MAKE) cross-compile; \
-		echo "Copying binary $(WHEEL_PLATFORM) $(WHEEL_BINARY)"; \
-		mkdir -p python-server/evalhub_server/binaries/; \
-		find python-server/evalhub_server/binaries/ -type f ! -name '.gitkeep' -delete; \
-		cp bin/$(WHEEL_BINARY)* python-server/evalhub_server/binaries/; \
-	else \
-		echo "Skipping copy (GITHUB_ACTIONS): binary provided by actions/download-artifact"; \
-	fi
-	@find python-server/evalhub_server/binaries/ -type f ! -name '.gitkeep' -exec chmod +x {} +
-	@echo "Building wheel for $(WHEEL_PLATFORM) with binary $(WHEEL_BINARY)..."
-	@rm -rf python-server/build/
-	@cp VERSION python-server/VERSION
+build-wheel: ## Build Python wheel: make build-wheel WHEEL_PLATFORM=manylinux_2_17_x86_64 WHEEL_BINARY=eval-hub-linux-amd64 CROSS_GOOS=linux
+	@rm -rf $(WHEEL_BUILD_DIR)
+	@mkdir -p $(WHEEL_BUILD_DIR)/binaries $(WHEEL_BUILD_DIR)/shims
+	@cp python-server/pyproject.toml python-server/setup.py python-server/README.md $(WHEEL_BUILD_DIR)/
+	@cp python-server/shims/* $(WHEEL_BUILD_DIR)/shims/
+	@cp VERSION $(WHEEL_BUILD_DIR)/VERSION
 	@if [ -n "$(DEV_SUFFIX)" ]; then \
-		BASE=$$(tr -d '\n' < python-server/VERSION); \
-		echo "$${BASE}.$(DEV_SUFFIX)" > python-server/VERSION; \
+		BASE=$$(tr -d '\n' < $(WHEEL_BUILD_DIR)/VERSION); \
+		echo "$${BASE}.$(DEV_SUFFIX)" > $(WHEEL_BUILD_DIR)/VERSION; \
 		echo "Python package version: $${BASE}.$(DEV_SUFFIX)"; \
 	fi
-	WHEEL_PLATFORM=$(WHEEL_PLATFORM) uv build --wheel python-server
+	# GHA downloads pre-built binaries into bin/ via actions/download-artifact; skip compile if present
+	@test -f $(CROSS_OUTPUT) || $(MAKE) cross-compile
+	@echo "Staging binary $(CROSS_OUTPUT) as $(WHEEL_BINARY_NAME)"
+	@cp $(CROSS_OUTPUT) $(WHEEL_BUILD_DIR)/binaries/$(WHEEL_BINARY_NAME)
+	@find $(WHEEL_BUILD_DIR)/binaries/ -type f -exec chmod +x {} +
+	@echo "Building wheel for $(WHEEL_PLATFORM)..."
+	@mkdir -p python-server/dist
+	WHEEL_PLATFORM=$(WHEEL_PLATFORM) uv build --wheel $(WHEEL_BUILD_DIR) --out-dir python-server/dist
+	@rm -rf $(WHEEL_BUILD_DIR)
+
+# Per-platform targets for parallel builds (make -j5 build-all-wheels)
+.PHONY: build-wheel-linux-amd64 build-wheel-linux-arm64 build-wheel-darwin-amd64 build-wheel-darwin-arm64 build-wheel-windows-amd64
+
+build-wheel-linux-amd64:
+	@$(MAKE) build-wheel WHEEL_PLATFORM=manylinux_2_17_x86_64 WHEEL_BINARY=eval-hub-linux-amd64 CROSS_GOOS=linux CROSS_GOARCH=amd64
+
+build-wheel-linux-arm64:
+	@$(MAKE) build-wheel WHEEL_PLATFORM=manylinux_2_17_aarch64 WHEEL_BINARY=eval-hub-linux-arm64 CROSS_GOOS=linux CROSS_GOARCH=arm64
+
+build-wheel-darwin-amd64:
+	@$(MAKE) build-wheel WHEEL_PLATFORM=macosx_10_9_x86_64 WHEEL_BINARY=eval-hub-darwin-amd64 CROSS_GOOS=darwin CROSS_GOARCH=amd64
+
+build-wheel-darwin-arm64:
+	@$(MAKE) build-wheel WHEEL_PLATFORM=macosx_11_0_arm64 WHEEL_BINARY=eval-hub-darwin-arm64 CROSS_GOOS=darwin CROSS_GOARCH=arm64
+
+build-wheel-windows-amd64:
+	@$(MAKE) build-wheel WHEEL_PLATFORM=win_amd64 WHEEL_BINARY=eval-hub-windows-amd64 CROSS_GOOS=windows CROSS_GOARCH=amd64
 
 .PHONY: build-all-wheels
-build-all-wheels: clean-wheels build-all-platforms ## Build all Python wheels for all platforms
-	@$(MAKE) build-wheel WHEEL_PLATFORM=manylinux_2_17_x86_64 WHEEL_BINARY=eval-hub-linux-amd64
-	@$(MAKE) build-wheel WHEEL_PLATFORM=manylinux_2_17_aarch64 WHEEL_BINARY=eval-hub-linux-arm64
-	@$(MAKE) build-wheel WHEEL_PLATFORM=macosx_10_9_x86_64 WHEEL_BINARY=eval-hub-darwin-amd64
-	@$(MAKE) build-wheel WHEEL_PLATFORM=macosx_11_0_arm64 WHEEL_BINARY=eval-hub-darwin-arm64
-	@$(MAKE) build-wheel WHEEL_PLATFORM=win_amd64 WHEEL_BINARY=eval-hub-windows-amd64
+build-all-wheels: clean-wheels ## Build all Python wheels (parallel: make -j5 build-all-wheels)
+	@$(MAKE) -j5 build-wheel-linux-amd64 build-wheel-linux-arm64 build-wheel-darwin-amd64 build-wheel-darwin-arm64 build-wheel-windows-amd64
 
 .PHONY: cls
 cls:
