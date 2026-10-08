@@ -1,0 +1,22 @@
+type: object
+description: Signing state, independent of the evaluation job status.
+properties:
+  state:
+    type: string
+    enum: [pending, signed, failed]
+  message:
+    allOf:
+      - $ref: ./MessageInfo.yaml
+      - type: object
+        properties:
+          message:
+            type: string
+            minLength: 1
+          message_code:
+            type: string
+            minLength: 1
+    description: Explanation of the signing state.
+required:
+  - state
+  - message
+additionalProperties: false

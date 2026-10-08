@@ -3944,6 +3944,134 @@
           }
         ]
       },
+      "OCIArtifactReference": {
+        "type": "object",
+        "description": "OCI artifact reference.",
+        "properties": {
+          "oci_digest": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Artifact digest.",
+            "examples": [
+              "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            ]
+          },
+          "oci_reference": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Registry reference identifying the artifact by digest."
+          }
+        },
+        "required": [
+          "oci_digest",
+          "oci_reference"
+        ],
+        "additionalProperties": false
+      },
+      "OCISigningStatus": {
+        "type": "object",
+        "description": "Signing state, independent of the evaluation job status.",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "signed",
+              "failed"
+            ]
+          },
+          "message": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MessageInfo"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "message_code": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            ],
+            "description": "Explanation of the signing state."
+          }
+        },
+        "required": [
+          "state",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "OCISigningResult": {
+        "type": "object",
+        "description": "Signing information associated with the evaluation bundle digest. Signing failure does not change a completed evaluation job to failed.",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/OCISigningStatus"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "key-pair"
+            ],
+            "description": "Signing method. Only key-pair is currently supported."
+          }
+        },
+        "required": [
+          "status",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "EvaluationOCIResults": {
+        "type": "object",
+        "description": "Optional job-level OCI references and signing information. Unavailable objects are omitted. These fields are reserved for later artifact publication and signing workflows; this delivery does not populate them or derive references from job IDs or registry tags. The populated example illustrates future behavior only.",
+        "properties": {
+          "evaluation_card": {
+            "$ref": "#/components/schemas/OCIArtifactReference",
+            "description": "Optional evaluation card artifact; omit until available."
+          },
+          "evaluation_bundle": {
+            "$ref": "#/components/schemas/OCIArtifactReference",
+            "description": "Optional OCI index grouping the evaluation card and benchmark artifacts; omit until available."
+          },
+          "signing": {
+            "$ref": "#/components/schemas/OCISigningResult",
+            "description": "Optional signing information; omitted when no outcome is available."
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "evaluation_card": {
+              "oci_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              "oci_reference": "quay.io/my-org/eval-results@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            },
+            "evaluation_bundle": {
+              "oci_digest": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+              "oci_reference": "quay.io/my-org/eval-results@sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+            },
+            "signing": {
+              "status": {
+                "state": "signed",
+                "message": {
+                  "message": "Evaluation bundle signing completed.",
+                  "message_code": "signing_success"
+                }
+              },
+              "type": "key-pair"
+            }
+          }
+        ]
+      },
       "MetricSchema": {
         "type": "object",
         "description": "One entry in metrics_schema that names a metric and its result type.",
@@ -4107,8 +4235,17 @@
       },
       "EvaluationJobResults": {
         "type": "object",
-        "description": "Results section for an evaluation job",
+        "description": "Results section shared by create, get, and list job resources. Unavailable OCI outputs are omitted. A signing request alone does not produce OCI signing results.",
+        "examples": [
+          {
+            "benchmarks": []
+          }
+        ],
         "properties": {
+          "oci": {
+            "$ref": "#/components/schemas/EvaluationOCIResults",
+            "description": "Optional job-level OCI reporting; omitted until values are available, including on completed jobs."
+          },
           "benchmarks": {
             "type": "array",
             "items": {
@@ -4739,9 +4876,53 @@
         "additionalProperties": false,
         "title": "OCIConnectionConfig"
       },
+      "OCISigningConfig": {
+        "type": "object",
+        "description": "Optional signing configuration for the evaluation bundle, in local and Kubernetes modes. For key-pair signing, secret_ref can reference a tenant namespace Kubernetes Secret expected to contain private.key; the request never contains key material. This configuration does not perform secret lookup, key loading, or signing execution.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "key-pair"
+            ],
+            "description": "Signing method. Only key-pair is currently supported."
+          },
+          "secret_ref": {
+            "type": "string",
+            "pattern": "^$|\\S",
+            "description": "Optional name of the signing key Secret for key-pair signing."
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      },
       "EvaluationExportsOCI": {
         "type": "object",
-        "description": "OCI export configuration for an evaluation job.",
+        "description": "OCI export configuration for local and Kubernetes evaluation jobs. Signing configuration is retained only; accepting it does not perform or schedule signing.",
+        "examples": [
+          {
+            "coordinates": {
+              "oci_host": "quay.io",
+              "oci_repository": "my-org/eval-results"
+            }
+          },
+          {
+            "coordinates": {
+              "oci_host": "quay.io",
+              "oci_repository": "my-org/eval-results",
+              "oci_tag": "final"
+            },
+            "k8s": {
+              "connection": "my-oci-secret"
+            },
+            "signing": {
+              "type": "key-pair",
+              "secret_ref": "my-cosign-secret"
+            }
+          }
+        ],
         "properties": {
           "coordinates": {
             "$ref": "#/components/schemas/OCICoordinates",
@@ -4750,6 +4931,10 @@
           "k8s": {
             "$ref": "#/components/schemas/OCIConnectionConfig",
             "description": "Optional Kubernetes connection for OCI registry authentication"
+          },
+          "signing": {
+            "$ref": "#/components/schemas/OCISigningConfig",
+            "description": "Optional signing configuration. Signing is disabled when omitted."
           }
         },
         "required": [

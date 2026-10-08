@@ -1,0 +1,13 @@
+type: object
+description: Signing information associated with the evaluation bundle digest. Signing failure does not change a completed evaluation job to failed.
+properties:
+  status:
+    $ref: ./OCISigningStatus.yaml
+  type:
+    type: string
+    enum: [key-pair]
+    description: Signing method. Only key-pair is currently supported.
+required:
+  - status
+  - type
+additionalProperties: false
